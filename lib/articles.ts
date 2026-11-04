@@ -41,14 +41,14 @@ export const AREAS = {
 export type AreaId = keyof typeof AREAS
 
 export const CATEGORIES = {
-  anime: { name: "アニメ・マンガ", color: "#7c3aed" },
-  collab: { name: "コラボカフェ・POPUP", color: "#db2777" },
-  gourmet: { name: "グルメ", color: "#ea580c" },
-  art: { name: "展示・アート", color: "#0891b2" },
-  festival: { name: "フェス・祭り", color: "#dc2626" },
-  music: { name: "音楽・ライブ", color: "#2563eb" },
-  family: { name: "親子・ファミリー", color: "#16a34a" },
-  seasonal: { name: "季節・ライトアップ", color: "#b45309" },
+  anime: { name: "アニメ・マンガ", color: "#22b8d4" },
+  collab: { name: "コラボカフェ・POPUP", color: "#ffb400" },
+  gourmet: { name: "グルメ", color: "#ff5c8f" },
+  art: { name: "展示・アート", color: "#8b6fe0" },
+  festival: { name: "フェス・祭り", color: "#e6432f" },
+  music: { name: "音楽・ライブ", color: "#4f8ff7" },
+  family: { name: "親子・ファミリー", color: "#3cbf7a" },
+  seasonal: { name: "季節・ライトアップ", color: "#f08a24" },
 } as const
 
 export type CategoryId = keyof typeof CATEGORIES

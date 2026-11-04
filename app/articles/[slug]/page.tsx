@@ -127,27 +127,39 @@ const Page = async ({ params }: Props) => {
         ]}
       />
       <article className="article">
-        <div className="article__meta">
+        <div className="article__tags">
           <StatusBadge article={article} today={today} />
           {article.categories.map((id) => (
-            <Link key={id} href={`/categories/${id}/`} className="chip">
+            <Link
+              key={id}
+              href={`/categories/${id}/`}
+              className="pill"
+              style={{ background: CATEGORIES[id].color }}
+            >
               {CATEGORIES[id].name}
             </Link>
           ))}
-          <time dateTime={getPublishedIso(article)}>
-            {formatDotDate(article.publishedAt)} 公開
-          </time>
+          <Link href={`/areas/${article.area}/`} className="pill pill--area">
+            {AREAS[article.area].name}
+          </Link>
         </div>
         <h1 className="article__title">{article.title}</h1>
-        <p className="article__summary">{article.summary}</p>
+        <time className="article__date" dateTime={getPublishedIso(article)}>
+          {formatDotDate(article.publishedAt)} 公開
+        </time>
         <Thumb article={article} large />
+        <p className="article__summary">{article.summary}</p>
 
         {e && (
           <aside className="event-box" aria-labelledby="event-box-title">
             <h2 id="event-box-title" className="event-box__title">
-              開催概要
+              イベント情報
             </h2>
             <dl>
+              <dt>会場</dt>
+              <dd>
+                <Link href={`/areas/${article.area}/`}>{e.venue}</Link>
+              </dd>
               <dt>期間</dt>
               <dd>
                 {formatLongDate(e.startDate)}
@@ -162,13 +174,6 @@ const Page = async ({ params }: Props) => {
                   <dd>{e.hours}</dd>
                 </>
               )}
-              <dt>会場</dt>
-              <dd>
-                <Link href={`/areas/${article.area}/`}>
-                  {AREAS[article.area].name}
-                </Link>
-                ｜{e.venue}
-              </dd>
               {e.address && (
                 <>
                   <dt>住所</dt>
@@ -178,15 +183,43 @@ const Page = async ({ params }: Props) => {
               <dt>料金</dt>
               <dd>{e.price}</dd>
               <dt>予約</dt>
-              <dd>{e.reservation ? "チケット・予約が必要" : "予約不要"}</dd>
+              <dd>{e.reservation ? "チケット・予約が必要" : "不要"}</dd>
             </dl>
+            <p className="event-box__links">
+              <Link href="/events/today/">
+                → 今日開催の池袋イベント一覧を見る
+              </Link>
+              <Link href={`/areas/${article.area}/`}>
+                → {AREAS[article.area].name}のイベント特集を見る
+              </Link>
+            </p>
           </aside>
         )}
 
         <Markdown source={article.content} />
 
+        <nav className="next-action" aria-labelledby="next-action-title">
+          <p className="kicker">Next Action</p>
+          <h2 id="next-action-title" className="next-action__title">
+            次に行く場所を探す
+          </h2>
+          <ul>
+            <li>
+              <Link href="/events/today/">今日行ける池袋イベント</Link>
+            </li>
+            <li>
+              <Link href="/events/this-weekend/">今週末の池袋イベント</Link>
+            </li>
+            <li>
+              <Link href={`/categories/${article.categories[0]}/`}>
+                {CATEGORIES[article.categories[0]].name}の記事をもっと見る
+              </Link>
+            </li>
+          </ul>
+        </nav>
+
         <section className="sources" aria-labelledby="sources-title">
-          <h2 id="sources-title">出典・公式情報</h2>
+          <h2 id="sources-title">公式URL・参考URL</h2>
           <ul>
             {article.sources.map((s) => (
               <li key={s.url}>
@@ -201,23 +234,33 @@ const Page = async ({ params }: Props) => {
           </p>
         </section>
 
+        <p className="article__author">執筆: {siteName}編集部</p>
+
         {article.tags.length > 0 && (
-          <ul
-            className="chips"
-            aria-label="キーワード"
-            style={{ listStyle: "none", padding: 0, marginTop: "1.5rem" }}
+          <section
+            className="article__keywords"
+            aria-labelledby="keywords-title"
           >
-            {article.tags.map((t) => (
-              <li key={t} className="chip">
-                #{t}
-              </li>
-            ))}
-          </ul>
+            <p id="keywords-title" className="kicker">
+              Tag
+            </p>
+            <div className="keyword-list">
+              {article.tags.map((t) => (
+                <Link
+                  key={t}
+                  href={`/articles/?q=${encodeURIComponent(t)}`}
+                  className="keyword-list__item"
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
       </article>
 
-      <Section id="related" kicker="Related" title="あわせて読みたい">
-        <ArticleGrid articles={getRelatedArticles(article)} today={today} />
+      <Section id="related" kicker="Related" title="類似記事">
+        <ArticleGrid articles={getRelatedArticles(article, 6)} today={today} />
       </Section>
     </>
   )

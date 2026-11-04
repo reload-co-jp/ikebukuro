@@ -1,3 +1,4 @@
+import Link from "next/link"
 import type { ReactNode } from "react"
 
 export const PageHeader = ({
@@ -41,4 +42,24 @@ export const Section = ({
     </div>
     {children}
   </section>
+)
+
+/** Akiba-style "詳細を見る" link panel. */
+export const LinkPanel = ({
+  title,
+  links,
+}: {
+  title: string
+  links: { href: string; label: string }[]
+}) => (
+  <nav className="link-panel" aria-label={title}>
+    <p className="link-panel__title">{title}</p>
+    <ul>
+      {links.map((l) => (
+        <li key={l.href}>
+          <Link href={l.href}>{l.label}</Link>
+        </li>
+      ))}
+    </ul>
+  </nav>
 )
