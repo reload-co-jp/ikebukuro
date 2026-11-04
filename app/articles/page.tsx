@@ -1,4 +1,6 @@
+import { Suspense } from "react"
 import { ArticleGrid } from "@/components/article-card"
+import { ArticleSearch } from "@/components/article-search"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { getAllArticles } from "@/lib/articles"
@@ -11,20 +13,26 @@ export const metadata = {
   alternates: { canonical: "/articles/" },
 }
 
-const Page = () => (
-  <>
-    <Breadcrumb items={[{ name: "新着記事", href: "/articles/" }]} />
-    <PageHeader
-      kicker="Latest News"
-      title="新着記事一覧"
-      lead="池袋エリアのイベントや最新情報を、公開日の新しい順に掲載しています。"
-    />
-    <ArticleGrid
-      articles={getAllArticles()}
-      today={todayJst()}
-      headingLevel={2}
-    />
-  </>
-)
+const Page = () => {
+  const articles = getAllArticles()
+  const today = todayJst()
+  return (
+    <>
+      <Breadcrumb items={[{ name: "新着記事", href: "/articles/" }]} />
+      <PageHeader
+        kicker="Latest News"
+        title="新着記事一覧"
+        lead="池袋エリアのイベントや最新情報を、公開日の新しい順に掲載しています。"
+      />
+      <Suspense
+        fallback={
+          <ArticleGrid articles={articles} today={today} headingLevel={2} />
+        }
+      >
+        <ArticleSearch articles={articles} today={today} />
+      </Suspense>
+    </>
+  )
+}
 
 export default Page

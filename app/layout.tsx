@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { SiteFooter, SiteHeader } from "@/components/layout"
+import { SiteFooter, SiteHeader, SiteSidebar } from "@/components/layout"
 import { jsonLdScript } from "@/lib/json-ld"
 import {
   absoluteUrl,
@@ -34,10 +34,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1c2a4a" },
-    { media: "(prefers-color-scheme: dark)", color: "#0c1220" },
-  ],
+  themeColor: "#ffffff",
 }
 
 const siteJsonLd = [
@@ -69,8 +66,13 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => (
     </head>
     <body>
       <SiteHeader />
-      <main className="main">{children}</main>
-      <SiteFooter />
+      <div className="site-shell">
+        <SiteSidebar />
+        <div className="site-content">
+          <main className="main">{children}</main>
+          <SiteFooter />
+        </div>
+      </div>
     </body>
   </html>
 )

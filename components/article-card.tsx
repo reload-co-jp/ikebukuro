@@ -19,48 +19,64 @@ export const StatusBadge = ({
   if (!article.event) return null
   const status = getEventStatus(article.event, today)
   return (
-    <span className={`badge badge--${status}`}>{STATUS_LABEL[status]}</span>
+    <span className={`status status--${status}`}>{STATUS_LABEL[status]}</span>
   )
 }
+
+/** Colourful pill tags: categories, then the area. */
+export const ArticleTags = ({ article }: { article: Article }) => (
+  <>
+    {article.categories.map((id) => (
+      <span
+        key={id}
+        className="pill"
+        style={{ background: CATEGORIES[id].color }}
+      >
+        {CATEGORIES[id].name}
+      </span>
+    ))}
+    <span className="pill pill--area">{AREAS[article.area].name}</span>
+  </>
+)
 
 export const ArticleCard = ({
   article,
   today,
   headingLevel = 3,
+  showSummary = true,
 }: {
   article: Article
   today: string
   headingLevel?: 2 | 3
+  showSummary?: boolean
 }) => {
   const Heading = headingLevel === 2 ? "h2" : "h3"
   return (
-    <li className="card">
-      <Link href={`/articles/${article.slug}/`} className="card__link">
-        <Thumb article={article} />
-        <div className="card__body">
-          <div className="card__meta">
+    <li>
+      <Link href={`/articles/${article.slug}/`} className="card-link">
+        <article className="card">
+          <Thumb article={article} />
+          <div className="card__tags">
             <StatusBadge article={article} today={today} />
-            <span className="chip">
-              {CATEGORIES[article.categories[0]].name}
-            </span>
-            <span className="chip chip--area">{AREAS[article.area].name}</span>
+            <ArticleTags article={article} />
           </div>
           <Heading className="card__title">{article.title}</Heading>
           {article.event ? (
-            <p className="card__event">
-              <span>
+            <dl className="card__meta">
+              <dt>会場</dt>
+              <dd>{article.event.venue}</dd>
+              <dt>期間</dt>
+              <dd>
                 {formatPeriod(article.event.startDate, article.event.endDate)}
-              </span>
-              <span>{article.event.venue}</span>
-            </p>
+              </dd>
+            </dl>
           ) : (
-            <p className="card__event">
-              <time dateTime={article.publishedAt}>
-                {formatDotDate(article.publishedAt)}
-              </time>
-            </p>
+            showSummary && <p className="card__summary">{article.summary}</p>
           )}
-        </div>
+          <time className="card__date" dateTime={article.publishedAt}>
+            {formatDotDate(article.publishedAt)}
+          </time>
+        </article>
       </Link>
     </li>
   )
@@ -71,16 +87,18 @@ export const ArticleGrid = ({
   today,
   empty = "該当する記事はまだありません。",
   headingLevel,
+  columns = 3,
 }: {
   articles: Article[]
   today: string
   empty?: string
   headingLevel?: 2 | 3
+  columns?: 2 | 3
 }) =>
   articles.length === 0 ? (
     <p className="empty">{empty}</p>
   ) : (
-    <ul className="grid">
+    <ul className={`card-grid card-grid--${columns}`}>
       {articles.map((a) => (
         <ArticleCard
           key={a.id}
