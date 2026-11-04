@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import Script from "next/script"
 import { SiteFooter, SiteHeader, SiteSidebar } from "@/components/layout"
 import { jsonLdScript } from "@/lib/json-ld"
 import {
@@ -65,6 +66,12 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => (
       />
     </head>
     <body>
+      <Script
+        async
+        crossOrigin="anonymous"
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6542845006087970"
+        strategy="afterInteractive"
+      />
       <SiteHeader />
       <div className="site-shell">
         <SiteSidebar />
