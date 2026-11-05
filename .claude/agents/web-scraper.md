@@ -3,7 +3,7 @@ name: web-scraper
 description: >
   Use this agent for web scraping and page-fetching work: pulling event/news
   listings from source sites, extracting article facts (title, date, venue,
-  price, official URL) from a specific page, or
+  price, official URL, image URL) from a specific page, or
   checking whether a URL is still live. Give it explicit URLs or a source list
   and the exact fields to return. It fetches and extracts only — it does not
   decide editorial policy, does not write to `data/articles.json`, and does not
@@ -46,8 +46,9 @@ script does not cover (X.com search, ad-hoc news pages).
 - If a page is 404 / blocked / JS-only with no usable text, return the entry
   with `"status": "unavailable"` and a one-line `note`. Do not retry more than
   twice, and do not go looking for a substitute page unless told to.
-- Do not edit repository files. This site does not reprint third-party
-  images, so don't download any.
+- Do not edit repository files and do not download images — return
+  `image_url` (the page's og:image) and the caller saves it with
+  `pnpm harvest image`.
 
 ## Default output shape
 
@@ -64,6 +65,7 @@ Unless the caller specifies a different schema:
       "venue": "…",
       "price_text": null,
       "official_url": "https://…",
+      "image_url": "https://…",
       "summary": "1〜2文の事実要約",
       "note": null
     }

@@ -48,9 +48,19 @@ export const generateMetadata = async ({
       title: article.title,
       description: article.summary,
       publishedTime: getPublishedIso(article),
+      ...(article.image && {
+        images: [
+          {
+            url: article.image.src,
+            width: article.image.width,
+            height: article.image.height,
+            alt: article.image.alt,
+          },
+        ],
+      }),
     },
     twitter: {
-      card: "summary",
+      card: article.image ? "summary_large_image" : "summary",
       title: article.title,
       description: article.summary,
     },
@@ -70,6 +80,7 @@ const buildJsonLd = (article: Article) => {
     url,
     inLanguage: "ja",
     keywords: article.tags.join(","),
+    ...(article.image && { image: absoluteUrl(article.image.src) }),
     author: {
       "@type": "Organization",
       name: `${siteName}編集部`,
@@ -148,6 +159,18 @@ const Page = async ({ params }: Props) => {
           {formatDotDate(article.publishedAt)} 公開
         </time>
         <Thumb article={article} large />
+        {article.image && (
+          <p className="thumb-credit">
+            画像出典：
+            <a
+              href={article.image.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {article.image.sourceLabel}
+            </a>
+          </p>
+        )}
         <p className="article__summary">{article.summary}</p>
 
         {e && (

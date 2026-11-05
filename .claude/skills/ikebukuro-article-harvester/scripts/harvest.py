@@ -15,7 +15,7 @@ Usage:
                                              # excluded URL. --all disables that.
   python3 harvest.py scan [out.json]         # list all -> dedup -> detail for NEW,
                                              # writes tmp/harvest-queue.json
-  python3 harvest.py detail <url>...         # TITLE/OGDESC/FACTS for page(s)
+  python3 harvest.py detail <url>...         # TITLE/OGIMG/OGDESC/FACTS for page(s)
   python3 harvest.py dedup "<kw>|<url>" ...  # check candidates against
                                              # data/articles.json + excluded log
   python3 harvest.py exclude "<url>" "<reason>" "<note>"
@@ -23,6 +23,10 @@ Usage:
                                              # reason: out_of_scope_area,
                                              # event_ended, not_ikebukuro_specific,
                                              # insufficient_facts, low_value
+  python3 harvest.py image "<img-url>" "<slug>" ["<source-page>"] ["<label>"] ["<alt>"]
+                                             # save to public/images/articles/<slug>.<ext>
+                                             # and print the article `image` JSON;
+                                             # refuses if that file already exists
   python3 harvest.py next-id                 # next free article id
 
 Redirect output to a file and read it back, e.g.:
@@ -44,6 +48,7 @@ from pathlib import Path
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ARTICLES_JSON = REPO_ROOT / "data" / "articles.json"
+IMAGES_DIR = REPO_ROOT / "public" / "images" / "articles"
 EXCLUDED_JSONL = Path(__file__).resolve().parent.parent / "references" / "excluded-candidates.jsonl"
 
 
@@ -480,6 +485,7 @@ def cmd_detail(args):
             d = detail_facts(url)
             print(f"\n=== {url} ===")
             print("TITLE:", d["title"])
+            print("OGIMG:", d["ogimg"])
             print("OGDESC:", d["ogdesc"])
             print("FACTS:", " | ".join(d["facts"]))
             if d["warning"]:
@@ -491,6 +497,7 @@ def cmd_detail(args):
 def detail_facts(url):
     text = fetch(url)
     title = re.search(r"<title>(.*?)</title>", text, re.S)
+    ogimg = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', text)
     ogdesc = re.search(r'<meta property="og:description" content="([^"]+)"', text)
     body = re.sub(r"<script[\s\S]*?</script>", " ", text)
     body = re.sub(r"<style[\s\S]*?</style>", " ", body)
@@ -506,6 +513,7 @@ def detail_facts(url):
         warning = "page never mentions 池袋/豊島区 area words — likely out of scope; confirm the venue before writing."
     return {
         "title": dec(title.group(1)).strip() if title else "",
+        "ogimg": urllib.parse.urljoin(url, dec(ogimg.group(1))) if ogimg else "",
         "ogdesc": dec(ogdesc.group(1))[:300] if ogdesc else "",
         "facts": keep[:30],
         "warning": warning,
@@ -609,7 +617,7 @@ def dedup_index():
     """
     articles = json.loads(ARTICLES_JSON.read_text(encoding="utf-8"))
     existing_slugs = [a["slug"] for a in articles]
-    image_stems = []
+    image_stems = [p.stem for p in IMAGES_DIR.glob("*")] if IMAGES_DIR.exists() else []
     slug_to_article = {a["slug"]: a for a in articles}
     source_url_index = {}
     for a in articles:
@@ -770,6 +778,124 @@ def cmd_scan(args):
     print(f"wrote {out_path}: {counts}, source errors: {list(errors) or 'none'}")
 
 
+IMAGE_EXTS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def image_size(data):
+    """(width, height) from JPEG/PNG/GIF/WebP header bytes, or None."""
+    import struct
+
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return struct.unpack(">II", data[16:24])
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return struct.unpack("<HH", data[6:10])
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        kind = data[12:16]
+        if kind == b"VP8X":
+            return (int.from_bytes(data[24:27], "little") + 1, int.from_bytes(data[27:30], "little") + 1)
+        if kind == b"VP8 ":
+            w, h = struct.unpack("<HH", data[26:30])
+            return (w & 0x3FFF, h & 0x3FFF)
+        if kind == b"VP8L":
+            b = int.from_bytes(data[21:25], "little")
+            return ((b & 0x3FFF) + 1, ((b >> 14) & 0x3FFF) + 1)
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            seg_len = struct.unpack(">H", data[i + 2 : i + 4])[0]
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                h, w = struct.unpack(">HH", data[i + 5 : i + 9])
+                return (w, h)
+            i += 2 + seg_len
+    return None
+
+
+MAX_IMAGE_WIDTH = 1200
+
+
+def optimize_image(data, ext):
+    """Shrink to MAX_IMAGE_WIDTH and re-encode as JPEG (PNG when it has real
+    transparency). Returns (data, ext). No-op when Pillow isn't installed —
+    the site then simply serves the original file."""
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+    except ImportError:
+        print("NOTE: Pillow not installed — saving the image unoptimized", file=sys.stderr)
+        return data, ext
+    if ext == "gif":
+        return data, ext  # may be animated
+    im = Image.open(BytesIO(data))
+    resized = im.width > MAX_IMAGE_WIDTH
+    if resized:
+        im = im.resize((MAX_IMAGE_WIDTH, round(im.height * MAX_IMAGE_WIDTH / im.width)), Image.LANCZOS)
+    has_alpha = im.mode in ("RGBA", "LA", "P") and im.convert("RGBA").getextrema()[3][0] < 255
+    buf = BytesIO()
+    if has_alpha:
+        im.convert("RGBA").save(buf, "PNG", optimize=True)
+        out, out_ext = buf.getvalue(), "png"
+    else:
+        im.convert("RGB").save(buf, "JPEG", quality=85, optimize=True, progressive=True)
+        out, out_ext = buf.getvalue(), "jpg"
+    return (out, out_ext) if resized or len(out) < len(data) else (data, ext)
+
+
+def cmd_image(args):
+    """Download an article image to public/images/articles/<slug>.<ext> and
+    print the JSON `image` object to paste into the article. Refuses if the
+    slug already exists as an article or image file (never overwrites)."""
+    if len(args) < 2:
+        print('Usage: python3 harvest.py image "<image-url>" "<slug>" ["<source-page-url>"] ["<source-label>"] ["<alt>"]')
+        sys.exit(1)
+    url, slug = args[:2]
+    source_url = args[2] if len(args) > 2 else ""
+    source_label = args[3] if len(args) > 3 else ""
+    alt = args[4] if len(args) > 4 else ""
+    if not re.fullmatch(r"[a-z0-9-]+", slug):
+        sys.exit(f"REFUSED: slug {slug!r} must be lowercase letters, digits and hyphens")
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    clash = [p.name for p in IMAGES_DIR.glob(f"{slug}.*")]
+    if clash:
+        sys.exit(f"REFUSED: {clash} already exist — re-check dedup or pick another slug")
+    # og:image filenames are sometimes raw Japanese; urllib can't send non-ASCII.
+    url = urllib.parse.quote(url, safe=":/?&=%#~+@,;")
+    headers = dict(UA)
+    if source_url:
+        headers["Referer"] = source_url
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+        data, ctype = r.read(MAX_IMAGE_BYTES + 1), r.headers.get_content_type()
+    if len(data) > MAX_IMAGE_BYTES:
+        sys.exit(f"REFUSED: {url} is larger than {MAX_IMAGE_BYTES // (1024 * 1024)}MB")
+    ext = IMAGE_EXTS.get(ctype)
+    if not ext:
+        sys.exit(f"REFUSED: {url} is {ctype}, not an image")
+    data, ext = optimize_image(data, ext)
+    size = image_size(data)
+    if not size:
+        sys.exit(f"REFUSED: could not read the size of {url} ({ctype})")
+    dest = IMAGES_DIR / f"{slug}.{ext}"
+    with dest.open("xb") as f:  # "x" = never overwrite
+        f.write(data)
+    print(f"saved {dest.relative_to(REPO_ROOT)} ({len(data)} bytes, {size[0]}x{size[1]})")
+    print(json.dumps({
+        "src": f"/images/articles/{dest.name}",
+        "alt": alt,
+        "sourceLabel": source_label,
+        "sourceUrl": source_url,
+        "width": size[0],
+        "height": size[1],
+    }, ensure_ascii=False, indent=2))
+
+
 def cmd_next_id(_args):
     articles = json.loads(ARTICLES_JSON.read_text(encoding="utf-8"))
     print(max((a.get("id", 0) for a in articles), default=0) + 1)
@@ -790,6 +916,8 @@ def main():
         cmd_exclude(args)
     elif cmd == "scan":
         cmd_scan(args)
+    elif cmd == "image":
+        cmd_image(args)
     elif cmd == "next-id":
         cmd_next_id(args)
     else:

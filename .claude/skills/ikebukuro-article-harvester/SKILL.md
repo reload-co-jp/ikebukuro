@@ -32,7 +32,8 @@ Use when asked "池袋の記事を追加", "新しい記事を拾って", "イ�
 4. Triage. A `detail.warning` ("never mentions 池袋/豊島区") means the page is out of scope — drop or log it. The warning is weak, though: collabocafe pages mention 池袋 in their sidebar tags, so for tour-style pop-ups (collabocafe, prtimes, gnews) always confirm the Ikebukuro venue in `ogdesc`/`facts`.
 5. Dedupe every remaining candidate in one batch: `pnpm harvest dedup "<keyword>|<url>" ... > tmp/dedup.txt 2>&1`, then read the file.
 6. Confirm facts for each candidate from the primary/official page (date, venue, price, hours, reservation). Delegate batched page fetches to the `web-scraper` agent when there are many URLs; keep editorial decisions here.
-7. Write all new articles and merges in one edit of `data/articles.json` (see [Article Format](#article-format)), log every held/rejected URL with `pnpm harvest exclude`, then run `pnpm test` and `pnpm build`.
+7. Save a thumbnail for each new article with `pnpm harvest image` (see [Images](#images)).
+8. Write all new articles and merges in one edit of `data/articles.json` (see [Article Format](#article-format)), log every held/rejected URL with `pnpm harvest exclude`, then run `pnpm test` and `pnpm build`.
 
 ## Harvest Script
 
@@ -43,6 +44,7 @@ Use when asked "池袋の記事を追加", "新しい記事を拾って", "イ�
 - `detail <url>...` — prints `TITLE` / `OGDESC` / `FACTS` (date, venue, price, reservation lines) and a warning when the page never mentions an Ikebukuro/豊島区 area word.
 - `dedup "<keyword>|<url>" ...` — text match on title/summary/content, short keyword match (bracketed names, katakana, latin words), exact normalized source-URL match, and romanized URL-token vs slug match. Also prints `PREVIOUSLY EXCLUDED`.
 - `exclude "<url>" "<reason>" "<note>"` — append to `references/excluded-candidates.jsonl`.
+- `image "<image-url>" "<slug>" "<source-page-url>" "<source-label>" "<alt>"` — saves `public/images/articles/<slug>.<ext>`, reads its width/height, and prints the `image` JSON object to put in the article. With Pillow installed it also shrinks the image to 1200px wide and re-encodes it as JPEG (PNG when transparent). Refuses to overwrite an existing file, non-image responses and files over 5MB.
 - `next-id` — next free `id` for a new article.
 
 Sources and their parsing notes live in the `SOURCES` dict at the top of the script. If a site changes its HTML and a source returns 0 rows, fix the entry there so the fix persists.
@@ -98,7 +100,15 @@ Follow the schema in `README.md` (「記事の追加」) and `lib/articles.ts`:
 - `tags`: venue, IP/brand and topic keywords.
 - `sources`: every page used, official first, with clear labels (`公式サイト`, `サンシャインシティ イベントページ`, `PR TIMES プレスリリース`, `池袋タイムズ 記事` ...).
 - `event`: only for dated events — `name`, `venue`, `address` (optional), `startDate`, `endDate` (omit if open-ended), `hours` (optional), `price`, `free`, `reservation`.
-- No images: this site does not reprint third-party photos; thumbnails are generated from the category color.
+- `image` (optional): the object printed by `pnpm harvest image` — `src`, `alt`, `sourceLabel`, `sourceUrl`, `width`, `height`. Place it after `sources`. Without it the card falls back to the category-colour typographic thumbnail.
+
+## Images
+
+- Use the `og:image` (`detail` prints it as `OGIMG`) of the official page first: event/venue/shop page, then the press release (PR TIMES images are provided for press use), and only then local media (池袋タイムズ, 池袋パーク).
+- Skip generic images: site logos, the facility's default OGP image, or an image unrelated to the event (e.g. アニメ東京ステーション's site-wide `soraiz_OGP.jpg`, 豊島区's `logo.jpg`). Try the next source instead; if nothing usable exists, leave `image` out.
+- `sourceUrl` is the page the image was taken from and `sourceLabel` its label (normally the same label used in `sources`). The article page shows it as 「画像出典」.
+- `alt`: describe the image briefly in Japanese, e.g. `「<イベント名>」の告知画像` or what the photo shows.
+- One image per article, named after the slug. Never overwrite another article's image; a `REFUSED` means re-check dedup or the slug.
 
 ## Output When Harvesting
 

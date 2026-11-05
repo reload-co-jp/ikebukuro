@@ -66,6 +66,17 @@ export type ArticleEvent = {
   reservation: boolean
 }
 
+export type ArticleImage = {
+  /** Site-relative path under /images/articles/. */
+  src: string
+  alt: string
+  /** Where the image was taken from (shown as the credit). */
+  sourceLabel: string
+  sourceUrl: string
+  width: number
+  height: number
+}
+
 export type Article = {
   id: number
   slug: string
@@ -78,6 +89,9 @@ export type Article = {
   categories: CategoryId[]
   tags: string[]
   sources: { label: string; url: string }[]
+  /** Thumbnail saved under public/images/articles/. Optional: articles
+   * without one get the typographic category-colour thumbnail. */
+  image?: ArticleImage
   event?: ArticleEvent
 }
 
