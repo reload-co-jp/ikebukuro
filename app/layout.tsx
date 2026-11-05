@@ -67,6 +67,18 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => (
     </head>
     <body>
       <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-85V2GGSHTE"
+        strategy="afterInteractive"
+      />
+      <Script id="gtag-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-85V2GGSHTE');
+        `}
+      </Script>
+      <Script
         async
         crossOrigin="anonymous"
         src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6542845006087970"
