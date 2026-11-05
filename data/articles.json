@@ -18,6 +18,14 @@
         "url": "https://agf-ikebukuro.jp/s/agf2026/"
       }
     ],
+    "image": {
+      "src": "/images/articles/animate-girls-festival-2026.jpg",
+      "alt": "「アニメイトガールズフェスティバル2026」の告知画像",
+      "sourceLabel": "サンシャインシティ イベントページ",
+      "sourceUrl": "https://sunshinecity.jp/event/entry-39079.html",
+      "width": 445,
+      "height": 280
+    },
     "event": {
       "name": "アニメイトガールズフェスティバル2026",
       "venue": "サンシャインシティ 展示ホールA・B・C・D、噴水広場",
@@ -50,6 +58,14 @@
         "url": "https://iwgp-gourmet.com/"
       }
     ],
+    "image": {
+      "src": "/images/articles/ikebukuro-west-gourmet-park-2026.png",
+      "alt": "「第2回 池袋ウエストグルメパーク2026」の告知画像",
+      "sourceLabel": "池袋ウエストグルメパーク 公式サイト",
+      "sourceUrl": "https://iwgp-gourmet.com/",
+      "width": 1200,
+      "height": 1120
+    },
     "event": {
       "name": "第2回 池袋ウエストグルメパーク2026",
       "venue": "池袋西口公園グローバルリング",
@@ -82,6 +98,14 @@
         "url": "https://www.tobu-dept.jp/ikebukuro/event/detail/9280"
       }
     ],
+    "image": {
+      "src": "/images/articles/tobu-ikebukuro-dai-nagasaki-ten-2026.jpg",
+      "alt": "「大長崎展」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/tobu-nagasaki202611.html",
+      "width": 1024,
+      "height": 687
+    },
     "event": {
       "name": "大長崎展",
       "venue": "東武百貨店 池袋本店 8階催事場",
@@ -119,6 +143,14 @@
         "url": "https://s.mxtv.jp/event/blacklagoon25th/"
       }
     ],
+    "image": {
+      "src": "/images/articles/black-lagoon-25th-anniversary-exhibition.jpg",
+      "alt": "「BLACK LAGOON 25周年原画展」の告知画像",
+      "sourceLabel": "サンシャインシティ イベントページ",
+      "sourceUrl": "https://sunshinecity.jp/event/entry-38799.html",
+      "width": 1000,
+      "height": 642
+    },
     "event": {
       "name": "BLACK LAGOON 25周年原画展",
       "venue": "サンシャイン60展望台 てんぼうパーク",
@@ -156,6 +188,14 @@
         "url": "https://animetokyo.jp/"
       }
     ],
+    "image": {
+      "src": "/images/articles/girls-band-cry-anime-tokyo-station-2026.jpg",
+      "alt": "「「ガールズバンドクライ」特別企画展」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/girls-band-cry202611.html",
+      "width": 709,
+      "height": 1000
+    },
     "event": {
       "name": "「ガールズバンドクライ」特別企画展",
       "venue": "アニメ東京ステーション",
@@ -188,6 +228,14 @@
         "url": "https://tamafes.com/"
       }
     ],
+    "image": {
+      "src": "/images/articles/tamago-fes-tokyo-2026.jpg",
+      "alt": "「卵フェスin東京2026」の告知画像",
+      "sourceLabel": "サンシャインシティ イベントページ",
+      "sourceUrl": "https://sunshinecity.jp/event/entry-39172.html",
+      "width": 1200,
+      "height": 1693
+    },
     "event": {
       "name": "卵フェスin東京2026",
       "venue": "サンシャインシティ 展示ホールA",
@@ -216,6 +264,14 @@
         "url": "https://sunshinecity.jp/file/official/pokepeace/"
       }
     ],
+    "image": {
+      "src": "/images/articles/pokepeace-meets-sunshine-city-twinkle-star-idol.jpg",
+      "alt": "「ポケピース Meets Sunshine City Twinkle Star Idol」の告知画像",
+      "sourceLabel": "サンシャインシティ 特設ページ",
+      "sourceUrl": "https://sunshinecity.jp/file/official/pokepeace/",
+      "width": 1200,
+      "height": 630
+    },
     "event": {
       "name": "ポケピース Meets Sunshine City Twinkle Star Idol",
       "venue": "サンシャインシティ 噴水広場（アルパB1）",
@@ -248,6 +304,14 @@
         "url": "https://trpg-summit.com/2026/"
       }
     ],
+    "image": {
+      "src": "/images/articles/trpg-summit-2026.jpg",
+      "alt": "「TRPGサミット2026」の告知画像",
+      "sourceLabel": "TRPGサミット2026 公式サイト",
+      "sourceUrl": "https://trpg-summit.com/2026/",
+      "width": 1200,
+      "height": 630
+    },
     "event": {
       "name": "TRPGサミット2026",
       "venue": "サンシャインシティ 展示ホールD（文化会館ビル2階）",
@@ -280,6 +344,14 @@
         "url": "http://www.affskk.jp/sub4.html"
       }
     ],
+    "image": {
+      "src": "/images/articles/minori-no-festival-2026.jpg",
+      "alt": "「令和8年度（第65回）農林水産祭「実りのフェスティバル」」の告知画像",
+      "sourceLabel": "池袋パーク 記事",
+      "sourceUrl": "https://www.ikebukuropark.info/minori-no-festival-2026/",
+      "width": 1191,
+      "height": 1685
+    },
     "event": {
       "name": "令和8年度（第65回）農林水産祭「実りのフェスティバル」",
       "venue": "サンシャインシティ ワールドインポートマートビル4階 展示ホールA",
@@ -316,6 +388,14 @@
         "url": "https://www.my-kagawa.jp/news/2407"
       }
     ],
+    "image": {
+      "src": "/images/articles/kagawa-fair-sunshine-city-2026.jpg",
+      "alt": "「「うどん県。それだけじゃない香川県」魅力発見フェア」の告知画像",
+      "sourceLabel": "サンシャインシティ イベントページ",
+      "sourceUrl": "https://sunshinecity.jp/event/entry-38959.html",
+      "width": 1200,
+      "height": 755
+    },
     "event": {
       "name": "「うどん県。それだけじゃない香川県」魅力発見フェア",
       "venue": "サンシャインシティ 噴水広場（アルパ地下1階）",
@@ -348,6 +428,14 @@
         "url": "https://planetarium.konicaminolta.jp/program/soranitokeru/"
       }
     ],
+    "image": {
+      "src": "/images/articles/planetarium-manten-sora-ni-tokeru-yoru.jpg",
+      "alt": "「宙にとける夜 -うちゅうヒーリング-」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/healing-planetarium202611.html",
+      "width": 1200,
+      "height": 848
+    },
     "event": {
       "name": "宙にとける夜 -うちゅうヒーリング-",
       "venue": "プラネタリウム満天（サンシャインシティ ワールドインポートマートビル屋上）",
@@ -378,6 +466,14 @@
         "url": "https://www.sanrio.co.jp/news/spots/kt-mezzopiano-popup-20261028/"
       }
     ],
+    "image": {
+      "src": "/images/articles/mezzo-piano-hello-kitty-popup-ikebukuro.jpg",
+      "alt": "「Mezzo Piano×Hello Kitty POP-UP SHOP」の告知画像",
+      "sourceLabel": "サンリオ ニュース",
+      "sourceUrl": "https://www.sanrio.co.jp/news/spots/kt-mezzopiano-popup-20261028/",
+      "width": 1120,
+      "height": 630
+    },
     "event": {
       "name": "Mezzo Piano×Hello Kitty POP-UP SHOP",
       "venue": "JR池袋駅 南改札外イベントスペース",
@@ -415,6 +511,14 @@
         "url": "https://kaiyu-art.net/"
       }
     ],
+    "image": {
+      "src": "/images/articles/ikebukuro-montparnasse-kaiyu-art-2026.jpg",
+      "alt": "「第21回池袋モンパルナス回遊美術館」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/kaiyu-art202610.html",
+      "width": 724,
+      "height": 1024
+    },
     "event": {
       "name": "第21回池袋モンパルナス回遊美術館",
       "venue": "東京芸術劇場、東武百貨店 池袋本店、サンシャインシティ ほか池袋周辺各所",
@@ -445,6 +549,14 @@
         "url": "https://rakuspa.com/rakucafe/"
       }
     ],
+    "image": {
+      "src": "/images/articles/daizo-cafe-raku-cafe-ikebukuro.jpg",
+      "alt": "「「だいぞう」カフェ ～はっぴーぽかぽかぱらだいす～」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/daizo-collab-cafe2026.html",
+      "width": 1000,
+      "height": 563
+    },
     "event": {
       "name": "「だいぞう」カフェ ～はっぴーぽかぽかぱらだいす～",
       "venue": "RAKU CAFE 池袋1号店（オトメイトビル2F）",
@@ -482,6 +594,14 @@
         "url": "https://www.city.toshima.lg.jp/424/miryoku/gyoji/manga_anime_fes.html"
       }
     ],
+    "image": {
+      "src": "/images/articles/anime-manga-fes-toshima-2026.jpg",
+      "alt": "「中野×杉並×豊島アニメ・マンガフェス2026in豊島」の告知画像",
+      "sourceLabel": "池袋タイムズ 記事",
+      "sourceUrl": "https://ikebukuro-times.com/archives/anime-manga-fes2026.html",
+      "width": 1024,
+      "height": 975
+    },
     "event": {
       "name": "中野×杉並×豊島アニメ・マンガフェス2026in豊島",
       "venue": "トキワ荘マンガミュージアム ほか豊島区内各所",
@@ -512,6 +632,14 @@
         "url": "https://globalring-music.com/"
       }
     ],
+    "image": {
+      "src": "/images/articles/ikebukuro-global-ring-music-festival-2026.jpg",
+      "alt": "「池袋GLOBAL RING音楽祭2026」の告知画像",
+      "sourceLabel": "PR TIMES 開催決定リリース",
+      "sourceUrl": "https://prtimes.jp/main/html/rd/p/000000003.000105416.html",
+      "width": 1200,
+      "height": 901
+    },
     "event": {
       "name": "池袋GLOBAL RING音楽祭2026",
       "venue": "池袋西口公園野外劇場 GLOBAL RING THEATRE ほか",
@@ -544,6 +672,14 @@
         "url": "https://sp.jorudan.co.jp/leaf/news/jrd_261019_2.html"
       }
     ],
+    "image": {
+      "src": "/images/articles/mejiro-teien-terasu-2026.jpg",
+      "alt": "「秋の庭園ライトアップ「TERASU2026」」の告知画像",
+      "sourceLabel": "PR TIMES リリース",
+      "sourceUrl": "https://prtimes.jp/main/html/rd/p/000000011.000171083.html",
+      "width": 1200,
+      "height": 675
+    },
     "event": {
       "name": "秋の庭園ライトアップ「TERASU2026」",
       "venue": "豊島区立目白庭園",
@@ -576,6 +712,14 @@
         "url": "https://sunshinecity.jp/file/aquarium/zannen/"
       }
     ],
+    "image": {
+      "src": "/images/articles/sunshine-aquarium-zannen-ikimono-3.webp",
+      "alt": "「ざんねんないきもの展３」の告知画像",
+      "sourceLabel": "サンシャイン水族館 特設ページ",
+      "sourceUrl": "https://sunshinecity.jp/file/aquarium/zannen/",
+      "width": 1200,
+      "height": 630
+    },
     "event": {
       "name": "ざんねんないきもの展３",
       "venue": "サンシャイン水族館 特別展会場",
@@ -607,6 +751,14 @@
         "url": "https://sunshinecity.jp/aquarium/event_performance/event/entry-38802.html"
       }
     ],
+    "image": {
+      "src": "/images/articles/sunshine-aquarium-tachiuo-day-2026.jpg",
+      "alt": "「11月11日タチウオの日制定記念イベント」の告知画像",
+      "sourceLabel": "サンシャイン水族館 イベントページ",
+      "sourceUrl": "https://sunshinecity.jp/aquarium/event_performance/event/entry-38802.html",
+      "width": 840,
+      "height": 510
+    },
     "event": {
       "name": "11月11日タチウオの日制定記念イベント",
       "venue": "サンシャイン水族館",

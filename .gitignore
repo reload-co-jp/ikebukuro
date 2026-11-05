@@ -44,3 +44,7 @@ lib-cov
 out/
 
 next-env.d.ts
+
+# harvest scratch output
+tmp/
+__pycache__/

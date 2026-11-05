@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import {
   AREAS,
@@ -45,6 +47,21 @@ describe("articles.json", () => {
           expect(a.event.endDate >= a.event.startDate).toBe(true)
         }
       }
+    }
+  })
+
+  it("has saved images with credits", () => {
+    for (const a of articles) {
+      if (!a.image) continue
+      expect(a.image.src).toMatch(
+        /^\/images\/articles\/[a-z0-9-]+\.(jpg|png|webp|gif)$/
+      )
+      expect(existsSync(join("public", a.image.src))).toBe(true)
+      expect(a.image.alt).not.toBe("")
+      expect(a.image.sourceLabel).not.toBe("")
+      expect(a.image.sourceUrl).toMatch(/^https?:\/\//)
+      expect(a.image.width).toBeGreaterThan(0)
+      expect(a.image.height).toBeGreaterThan(0)
     }
   })
 

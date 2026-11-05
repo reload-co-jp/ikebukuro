@@ -44,6 +44,14 @@
   "categories": ["anime"],         // lib/articles.ts の CATEGORIES のキー（先頭がメイン）
   "tags": ["サンシャインシティ"],
   "sources": [{ "label": "公式サイト", "url": "https://example.com" }],
+  "image": {                       // 任意。public/images/articles/ に保存したサムネイル
+    "src": "/images/articles/example-event-2026.jpg",
+    "alt": "「イベント名」の告知画像",
+    "sourceLabel": "公式サイト",     // 記事ページに「画像出典」として表示
+    "sourceUrl": "https://example.com",
+    "width": 1200,
+    "height": 630
+  },
   "event": {                       // イベント記事のみ
     "name": "イベント名",
     "venue": "会場",
@@ -58,9 +66,11 @@
 }
 ```
 
-編集方針：主催者の公式サイト・プレスリリース・施設の公式ページで事実を確認し、`sources` に出典を必ず記載します。第三者の写真は転載せず、サムネイルはカテゴリ色のタイポグラフィで表示します。
+編集方針：主催者の公式サイト・プレスリリース・施設の公式ページで事実を確認し、`sources` に出典を必ず記載します。サムネイルは公式サイト・プレスリリースの告知画像（og:image）を `public/images/articles/` に保存し、記事ページに画像出典を表示します。画像がない記事はカテゴリ色のタイポグラフィで表示します。
 
 `pnpm test` で記事データの整合性（ID・slug の重複、日付形式、エリア/カテゴリのキーなど）を検証できます。
+
+記事の収集は `.claude/skills/ikebukuro-article-harvester` を参照してください（`pnpm harvest scan` で候補を一覧化、`pnpm harvest image "<画像URL>" "<slug>" "<出典URL>" "<出典名>" "<alt>"` で画像を保存）。
 
 ## スクリプト
 

@@ -1,0 +1,928 @@
+#!/usr/bin/env python3
+"""
+Ikebukuro article harvester helper (ported from the Akiba Live harvester).
+
+Why this exists: naive regex against listing pages breaks silently (wrong href
+shape, title hidden in nested tags, stale dates), and browsing each source one
+page at a time burns tool calls. This script bakes in the per-source parsing so
+each harvest run doesn't re-derive it.
+
+Usage:
+  python3 harvest.py list <source|all>      # candidate (title, url) pairs.
+                                             # Auto-skips rows whose URL already
+                                             # matches an existing article's
+                                             # sources[].url, or a previously
+                                             # excluded URL. --all disables that.
+  python3 harvest.py scan [out.json]         # list all -> dedup -> detail for NEW,
+                                             # writes tmp/harvest-queue.json
+  python3 harvest.py detail <url>...         # TITLE/OGIMG/OGDESC/FACTS for page(s)
+  python3 harvest.py dedup "<kw>|<url>" ...  # check candidates against
+                                             # data/articles.json + excluded log
+  python3 harvest.py exclude "<url>" "<reason>" "<note>"
+                                             # log a held/rejected candidate.
+                                             # reason: out_of_scope_area,
+                                             # event_ended, not_ikebukuro_specific,
+                                             # insufficient_facts, low_value
+  python3 harvest.py image "<img-url>" "<slug>" ["<source-page>"] ["<label>"] ["<alt>"]
+                                             # save to public/images/articles/<slug>.<ext>
+                                             # and print the article `image` JSON;
+                                             # refuses if that file already exists
+  python3 harvest.py next-id                 # next free article id
+
+Redirect output to a file and read it back, e.g.:
+  python3 harvest.py list all > tmp/harvest_out.txt 2>&1
+"""
+import html
+import json
+import re
+import socket
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from html.parser import HTMLParser
+from pathlib import Path
+
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+REPO_ROOT = Path(__file__).resolve().parents[4]
+ARTICLES_JSON = REPO_ROOT / "data" / "articles.json"
+IMAGES_DIR = REPO_ROOT / "public" / "images" / "articles"
+EXCLUDED_JSONL = Path(__file__).resolve().parent.parent / "references" / "excluded-candidates.jsonl"
+
+
+def load_excluded():
+    """Load previously-held/rejected candidate URLs so dedup runs don't
+    re-research the same non-article every harvest pass. Keyed by normalized
+    URL; last entry for a given URL wins if it was logged more than once."""
+    if not EXCLUDED_JSONL.exists():
+        return {}
+    out = {}
+    for line in EXCLUDED_JSONL.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        norm = normalize_source_url(rec.get("url", ""))
+        if norm:
+            out[norm] = rec
+    return out
+
+
+def cmd_exclude(args):
+    """Append one held/rejected candidate to the excluded-candidates log.
+    Usage: python3 harvest.py exclude "<url>" "<reason>" "<note>"
+    reason is a short machine-friendly tag, e.g. out_of_scope_venue,
+    event_ended, not_akihabara_specific, insufficient_facts, low_value."""
+    if len(args) < 2:
+        print('Usage: python3 harvest.py exclude "<url>" "<reason>" ["<note>"]')
+        return
+    url = args[0]
+    reason = args[1]
+    note = args[2] if len(args) > 2 else ""
+    rec = {
+        "url": url,
+        "reason": reason,
+        "note": note,
+        "checked": time.strftime("%Y-%m-%d"),
+    }
+    EXCLUDED_JSONL.parent.mkdir(parents=True, exist_ok=True)
+    with EXCLUDED_JSONL.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    print(f"Logged excluded candidate: {url} ({reason})")
+
+
+def is_transient_network_error(exc):
+    # HTTPError subclasses URLError: retry rate-limit/server errors only. 404s
+    # and Cloudflare 403s (kotobukiya, amiami) never recover on retry.
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code == 429 or exc.code >= 500
+    if isinstance(exc, (socket.gaierror, TimeoutError, urllib.error.URLError)):
+        return True
+    msg = str(exc).lower()
+    return any(
+        marker in msg
+        for marker in [
+            "temporary failure in name resolution",
+            "nodename nor servname provided",
+            "name or service not known",
+            "timed out",
+            "network is unreachable",
+        ]
+    )
+
+
+def fetch(url, timeout=20, retries=3, retry_delay=2):
+    req = urllib.request.Request(url, headers=UA)
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read().decode(r.headers.get_content_charset() or "utf-8", errors="ignore")
+        except Exception as exc:
+            last_error = exc
+            if attempt >= retries or not is_transient_network_error(exc):
+                break
+            print(
+                f"FETCH RETRY {attempt}/{retries}: {url} ({type(exc).__name__}: {exc})",
+                file=sys.stderr,
+            )
+            time.sleep(retry_delay * attempt)
+    print(
+        "FETCH FAILED after retries. If this is DNS/network sandboxing, rerun the same "
+        f"harvest.py command with escalated network permissions. URL: {url}",
+        file=sys.stderr,
+    )
+    raise last_error
+
+
+def dec(s):
+    return html.unescape(s)
+
+
+def trunc(s, n):
+    s = s.strip()
+    return s[:n] + "..." if len(s) > n else s
+
+
+class LinkExtractor(HTMLParser):
+    """Collects (href, text-or-title-attr) for <a> tags matching href_filter."""
+
+    def __init__(self, href_filter):
+        super().__init__()
+        self.href_filter = href_filter
+        self.items = []
+        self.cur_href = None
+        self.cur_text = []
+        self.cur_has_title_attr = False
+        self.depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        d = dict(attrs)
+        if tag == "a":
+            href = d.get("href", "")
+            if self.href_filter(href):
+                self.cur_href = href
+                # many sites (shosen) put the real title in title="", not inner text
+                self.cur_has_title_attr = bool(d.get("title"))
+                self.cur_text = [d["title"]] if self.cur_has_title_attr else []
+                self.depth = 1
+            elif self.cur_href is not None:
+                self.depth += 1
+        elif tag == "img" and self.cur_href is not None:
+            alt = d.get("alt")
+            if alt:
+                self.cur_text.append(alt)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.cur_href is not None:
+            self.depth -= 1
+            if self.depth <= 0:
+                text = " ".join(t.strip() for t in self.cur_text if t.strip())
+                self.items.append((self.cur_href, text))
+                self.cur_href = None
+                self.cur_has_title_attr = False
+
+    def handle_data(self, data):
+        if self.cur_href is not None and not self.cur_has_title_attr:
+            t = data.strip()
+            if t:
+                self.cur_text.append(t)
+
+
+def extract(url, href_filter, base=""):
+    text = fetch(url)
+    p = LinkExtractor(href_filter)
+    p.feed(text)
+    out_by_url = {}
+    for href, t in p.items:
+        full = href if href.startswith("http") else base + href
+        title = dec(t)
+        if full not in out_by_url or (not out_by_url[full] and title):
+            out_by_url[full] = title
+    return [(t, href) for href, t in out_by_url.items()]
+
+
+# --- per-source extraction -------------------------------------------------
+# Notes from probing (2026-11):
+#   - ikebukuro-times.com: article URLs are /archives/<slug>.html; category and
+#     paging links share the /archives/ prefix, so the filter requires ".html".
+#     The home page and /archives/category/event are both scanned.
+#   - ikebukuropark.info: article URLs are one-segment /<slug>/; exclude
+#     *-archive/, ad*/, wp-* and other utility pages.
+#   - sunshinecity.jp/event/ links to event, observatory, shop-news and
+#     restaurant-news entries (all entry-N.html). shop_news/restaurant_news are
+#     mostly apparel/menu promos, so they are dropped. The aquarium event page
+#     (/aquarium/event_performance/event/) is JS-rendered (0 links) and the
+#     animate.co.jp/shop/ikebukuro/ news list has empty anchors — both are
+#     left out; use WebSearch for them.
+#   - collabocafe /events/tag/ikebukuro/ includes other cities' legs of
+#     multi-venue tours. Confirm the Ikebukuro venue in the detail page.
+#   - enjoytokyo area1303 = 池袋 (area1302 is 渋谷, area1305 is 築地).
+#   - walkerplus ar0313116/toshima/ = 豊島区 list (whole ward is in scope).
+#   - tobu-dept.jp and city.toshima.lg.jp reset the connection from this
+#     environment; hareza-ikebukuro.com returns 403. Use WebSearch for them.
+
+SOURCES = {
+    "ikebukuro_times": dict(
+        url="https://ikebukuro-times.com/",
+        href_filter=lambda h: bool(re.search(r"ikebukuro-times\.com/archives/[^/]+\.html$", h or "")),
+        base="",
+    ),
+    "ikebukuro_times_event": dict(
+        url="https://ikebukuro-times.com/archives/category/event",
+        href_filter=lambda h: bool(re.search(r"ikebukuro-times\.com/archives/[^/]+\.html$", h or "")),
+        base="",
+    ),
+    "ikebukuropark": dict(
+        url="https://www.ikebukuropark.info/",
+        href_filter=lambda h: bool(re.search(r"^https://www\.ikebukuropark\.info/[a-z0-9][a-z0-9-]+/$", h or ""))
+        and not re.search(r"-archive/$|/ad\d*/$|/(about|contact|privacy[a-z-]*|sitemap)/$", h),
+        base="",
+    ),
+    "sunshinecity": dict(
+        url="https://sunshinecity.jp/event/",
+        href_filter=lambda h: bool(re.search(r"sunshinecity\.jp/[a-z_/]*entry-\d+\.html$", h or ""))
+        and "/shop_news/" not in h and "/restaurant_news/" not in h,
+        base="",
+    ),
+    "parco": dict(
+        url="https://ikebukuro.parco.jp/pnews/",
+        href_filter=lambda h: "/pnews/detail/?id=" in (h or ""),
+        base="https://ikebukuro.parco.jp",
+    ),
+    "esola": dict(
+        url="https://www.metropro-sc.jp/esola-ikebukuro/",
+        href_filter=lambda h: "item_eventnews.jsp?id=" in (h or ""),
+        base="",
+    ),
+    "keizai": dict(
+        url="https://ikebukuro.keizai.biz/",
+        href_filter=lambda h: bool(re.search(r"ikebukuro\.keizai\.biz/headline/\d+/$", h or "")),
+        base="",
+    ),
+    "collabocafe": dict(
+        url="https://collabo-cafe.com/events/tag/ikebukuro/",
+        href_filter=lambda h: "collabo-cafe.com/events/collabo/" in (h or ""),
+        base="",
+    ),
+    "prtimes": dict(
+        url="https://prtimes.jp/topics/keywords/%E6%B1%A0%E8%A2%8B",
+        href_filter=lambda h: bool(re.match(r"^/main/html/rd/p/", h or "")),
+        base="https://prtimes.jp",
+    ),
+    "enjoytokyo": dict(
+        url="https://www.enjoytokyo.jp/event/list/area1303/",
+        href_filter=lambda h: bool(re.search(r"/event/\d{6,7}/$", h or "")),
+        base="",
+    ),
+}
+
+GNEWS_URL = "https://news.google.com/rss/search?q=%E6%B1%A0%E8%A2%8B&hl=ja&gl=JP&ceid=JP:ja"
+CEEK_URL = "https://news.ceek.jp/search.cgi?q=%E6%B1%A0%E8%A2%8B&summary=1"
+EXTRA_SOURCES = ["walkerplus", "gnews", "ceek"]
+
+# Area words for the Ikebukuro site (豊島区). Used to warn on detail pages that
+# never mention the area (multi-city tours on collabocafe/prtimes/gnews).
+AREA_RE = re.compile(
+    r"池袋|IKEBUKURO|Ikebukuro|サンシャイン|乙女ロード|豊島区|目白|南長崎|椎名町|トキワ荘|大塚|巣鴨|駒込|雑司が谷|雑司ヶ谷|要町|千川|東長崎"
+)
+
+
+CRIME_NOISE_RE = re.compile(r"逮捕|容疑|殺人|通り魔|無差別殺傷|殺傷事件|刺され|刺した|人身事故|死亡")
+ELECTRONICS_STOCK_RE = re.compile(
+    r"(円|台)(が|など|から|、).{0,15}(セール|入荷|発売|中古|未使用品|特価|割引|引き)"
+)
+EVENT_KEYWORDS_RE = re.compile(
+    r"開店|閉店|閉業|オープン|移転|解体|コラボ|イベント|キャンペーン|フェア|POP ?UP|ポップアップ|開催|リニューアル"
+)
+
+
+def noise_reason(title):
+    """Classify obviously-out-of-scope rows so they can be collapsed to a
+    count instead of printed in full. Two big offenders drove /tmp/harvest_out.txt
+    past 500 lines in one pass: gnews/ceek syndicate the same story across dozens
+    of outlets, and akibapc_info's routine used-electronics price posts are
+    excluded by SKILL.md's candidate rules anyway. Keep this conservative —
+    anything that also looks like an opening/closing/collab/event is never
+    filtered, since that's exactly the non-event 出来事 this skill wants."""
+    if CRIME_NOISE_RE.search(title):
+        return "crime"
+    if not EVENT_KEYWORDS_RE.search(title) and ELECTRONICS_STOCK_RE.search(title):
+        return "stock"
+    return None
+
+
+def normalize_news_title(title):
+    """Collapse '<same story> - Outlet A' / '<same story> - Outlet B' into one
+    grouping key so syndicated reposts (common on gnews/ceek) count once."""
+    t = re.sub(r"\s*[\|\-–—]\s*[^\|\-–—]{1,30}$", "", title).strip()
+    t = re.sub(r"\s+", "", t)
+    t = re.sub(r"[「」『』（）()]", "", t)
+    return t
+
+
+def strip_fragment(url):
+    return url.split("#")[0]
+
+
+def print_items(name, rows, limit, skip_known=True):
+    """rows: iterable of (extra_or_None, title, url). Applies noise filtering
+    (see noise_reason) and duplicate-title grouping (see normalize_news_title)
+    before printing, so callers reading the redirected output file don't pay
+    for reading past dozens of reposts of the same story or routine PC-parts
+    sale posts that SKILL.md excludes anyway.
+
+    When skip_known is True (the default), also drops any row whose URL
+    (normalized) exactly matches an existing article's sources[].url/
+    image.sourceUrl, or a previously-logged excluded-candidates.jsonl entry.
+    This is a repeat-pass optimization: primary/aggregator sources
+    (collabocafe, kotobukiya, gamers, atre, shosen, animate, ...) reuse the
+    same stable URL for an event page across harvest runs, so once an item
+    has been written or explicitly held/rejected, re-listing it every pass
+    was pure waste. gnews/ceek URLs wrap a fresh Google News redirect token
+    per crawl and so rarely match here — pass --all to see everything
+    unfiltered (e.g. when checking whether this filter itself is hiding
+    something it shouldn't)."""
+    kept, total, suffix = filter_rows(rows, skip_known)
+    print(f"\n=== {name} ({len(kept)} shown / {total} total{suffix}) ===")
+    for count, extra, title, url in kept[:limit]:
+        dup = f" (x{count})" if count > 1 else ""
+        prefix = f"{extra} | " if extra else ""
+        print(f"{prefix}{trunc(title, 70)}{dup} | {url}")
+
+
+def filter_rows(rows, skip_known=True):
+    """Shared by print_items and scan: returns (kept [count, extra, title, url]
+    entries, total row count, header suffix describing what was dropped)."""
+    noise_counts = {}
+    seen_keys = {}
+    kept = []
+    known_skipped = 0
+    excluded_skipped = 0
+    existing_urls = load_existing_source_urls() if skip_known else set()
+    excluded = load_excluded() if skip_known else {}
+    for extra, title, url in rows:
+        reason = noise_reason(title)
+        if reason:
+            noise_counts[reason] = noise_counts.get(reason, 0) + 1
+            continue
+        clean_url = strip_fragment(url)
+        if skip_known:
+            norm = normalize_source_url(clean_url)
+            if norm in existing_urls:
+                known_skipped += 1
+                continue
+            if norm in excluded:
+                excluded_skipped += 1
+                continue
+        key = normalize_news_title(title)
+        if key in seen_keys:
+            seen_keys[key][0] += 1
+            continue
+        entry = [1, extra, title, clean_url]
+        seen_keys[key] = entry
+        kept.append(entry)
+
+    suffix = ""
+    if noise_counts.get("crime"):
+        suffix += f", {noise_counts['crime']} crime-noise filtered"
+    if noise_counts.get("stock"):
+        suffix += f", {noise_counts['stock']} stock-noise filtered"
+    if known_skipped:
+        suffix += f", {known_skipped} already-in-articles.json skipped"
+    if excluded_skipped:
+        suffix += f", {excluded_skipped} previously-excluded skipped"
+    return kept, len(rows), suffix
+
+
+def list_walkerplus(max_pages=8):
+    """豊島区 WalkerPlus list. Each card spans several <a href="/event/ar0313eNNN/">
+    anchors (image, title, ...), so text is merged per URL. Card text is
+    title | status | dates | catch | 東京都 | 区 | venue | genre."""
+    cards = {}
+    for page in range(1, max_pages + 1):
+        url = "https://www.walkerplus.com/event_list/ar0313116/toshima/" + ("" if page == 1 else f"{page}.html")
+        try:
+            text = fetch(url)
+        except Exception:
+            if page == 1:
+                raise
+            break
+        segs = re.split(r'(?=<a[^>]+href="/event/ar0313e\d+/")', text)[1:]
+        if not segs:
+            break
+        for seg in segs:
+            href = re.match(r'<a[^>]+href="(/event/ar0313e\d+/)"', seg).group(1)
+            parts = [dec(t.strip()) for t in re.sub(r"<[^>]+>", "\n", seg).split("\n") if t.strip()]
+            cards.setdefault(href, []).extend(p for p in parts[:15] if "googletag" not in p)
+    rows = []
+    for href, parts in cards.items():
+        if not parts:
+            continue
+        date = next((p for p in parts if re.search(r"\d{4}年\d{1,2}月", p)), "")
+        ward = next((i for i, p in enumerate(parts) if p.endswith("区")), None)
+        venue = parts[ward + 1] if ward is not None and ward + 1 < len(parts) else ""
+        rows.append((date, f"{parts[0]} @ {venue}" if venue else parts[0], "https://www.walkerplus.com" + href))
+    return rows
+
+
+def list_source(name, limit=80, skip_known=True):
+    print_items(name, source_rows(name), limit, skip_known=skip_known)
+
+
+def source_rows(name):
+    """Raw (extra_or_None, title, url) rows for one source, unfiltered."""
+    if name == "gnews":
+        text = fetch(GNEWS_URL)
+        items = re.findall(r"<item>(.*?)</item>", text, re.S)
+        rows = []
+        for it in items:
+            title = dec(re.search(r"<title>(.*?)</title>", it, re.S).group(1))
+            link = re.search(r"<link>(.*?)</link>", it, re.S).group(1)
+            pub = re.search(r"<pubDate>(.*?)</pubDate>", it, re.S)
+            pub = pub.group(1)[:16] if pub else ""
+            rows.append((pub, title, link))
+        return rows
+    if name == "ceek":
+        items = extract(
+            CEEK_URL,
+            lambda h: h and h.startswith("http") and "ceek.jp" not in h,
+        )
+        rows = [(None, t, href) for t, href in items]
+        return rows
+    if name == "walkerplus":
+        rows = list_walkerplus()
+        return rows
+    cfg = SOURCES[name]
+    items = extract(cfg["url"], cfg["href_filter"], cfg["base"])
+    return [(None, t, href) for t, href in items]
+
+
+def cmd_list(args):
+    skip_known = "--all" not in args
+    args = [a for a in args if a != "--all"]
+    target = args[0] if args else "all"
+    if target == "all":
+        for name in list(SOURCES) + EXTRA_SOURCES:
+            try:
+                list_source(name, skip_known=skip_known)
+            except Exception as e:
+                print(f"\n=== {name} ERROR: {e}")
+    else:
+        list_source(target, limit=200, skip_known=skip_known)
+
+
+def cmd_detail(args):
+    """Fetch one detail page and print TITLE/OGIMG/OGDESC/FACTS — use before
+    writing any article to confirm venue, dates, price, reservation rules."""
+    for url in args:
+        try:
+            d = detail_facts(url)
+            print(f"\n=== {url} ===")
+            print("TITLE:", d["title"])
+            print("OGIMG:", d["ogimg"])
+            print("OGDESC:", d["ogdesc"])
+            print("FACTS:", " | ".join(d["facts"]))
+            if d["warning"]:
+                print("WARNING:", d["warning"])
+        except Exception as e:
+            print(f"\n=== {url} ERROR: {e}")
+
+
+def detail_facts(url):
+    text = fetch(url)
+    title = re.search(r"<title>(.*?)</title>", text, re.S)
+    ogimg = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', text)
+    ogdesc = re.search(r'<meta property="og:description" content="([^"]+)"', text)
+    body = re.sub(r"<script[\s\S]*?</script>", " ", text)
+    body = re.sub(r"<style[\s\S]*?</style>", " ", body)
+    plain = dec(re.sub(r"<[^>]+>", "\n", body))
+    lines = [l.strip() for l in plain.split("\n") if l.strip()]
+    keep = [
+        l
+        for l in lines
+        if re.search(r"\d{1,2}月\d{1,2}日|\d{4}年|期間|会場|住所|店舗|価格|円|予約|無料|有料|時間|開催", l)
+    ]
+    warning = ""
+    if not AREA_RE.search(plain):
+        warning = "page never mentions 池袋/豊島区 area words — likely out of scope; confirm the venue before writing."
+    return {
+        "title": dec(title.group(1)).strip() if title else "",
+        "ogimg": urllib.parse.urljoin(url, dec(ogimg.group(1))) if ogimg else "",
+        "ogdesc": dec(ogdesc.group(1))[:300] if ogdesc else "",
+        "facts": keep[:30],
+        "warning": warning,
+    }
+
+
+GENERIC_SLUG_TOKENS = {
+    "popup", "pop", "store", "shop", "shops", "ikebukuro", "sunshine", "city", "tokyo", "japan",
+    "archives", "headline", "news", "detail", "entry", "main", "html", "event_list",
+    "event", "events", "collabo", "collaboration", "fair", "cafe", "campaign",
+    "exhibition", "exhibit", "anime", "anniversary", "tour", "festival", "the",
+}
+
+
+def slug_tokens(url_or_slug):
+    """Pull distinctive lowercase tokens out of a URL path or slug. Aggregator
+    URLs (collabocafe, gamers, ...) already carry a romanized hint of the title
+    — e.g. .../otagal-animal-butler-and-maid-popup-store-akihabara2026/ — which
+    is the only practical way to cross-check a Japanese aggregator title against
+    this repo's English article slugs without doing real translation."""
+    s = re.sub(r"^https?://[^/]+", "", url_or_slug)
+    s = re.sub(r"\.(html?|jpe?g|png|php.*)$", "", s)
+    s = re.sub(r"\d+$", "", s)  # trailing year, e.g. ...2026
+    parts = re.split(r"[/_\-?=&]+", s)
+    out = []
+    for p in parts:
+        p = p.lower()
+        if len(p) >= 4 and p.isalpha() and p not in GENERIC_SLUG_TOKENS:
+            out.append(p)
+    return out
+
+
+TRACKING_QUERY_PREFIXES = ("utm_",)
+TRACKING_QUERY_KEYS = {
+    "fbclid", "gclid", "yclid", "mc_cid", "mc_eid", "igshid", "ref", "ref_src",
+    "spm", "feature", "si",
+}
+
+
+def normalize_source_url(url):
+    """Normalize source/reference URLs for duplicate detection. This keeps
+    source identity stable while ignoring tracking noise."""
+    if not url:
+        return ""
+    parsed = urllib.parse.urlsplit(url.strip())
+    scheme = parsed.scheme.lower() or "https"
+    netloc = parsed.netloc.lower()
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    path = re.sub(r"/+$", "", parsed.path) or "/"
+    query_items = []
+    for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True):
+        key_l = key.lower()
+        if key_l in TRACKING_QUERY_KEYS or any(key_l.startswith(p) for p in TRACKING_QUERY_PREFIXES):
+            continue
+        query_items.append((key_l, value))
+    query = urllib.parse.urlencode(sorted(query_items))
+    return urllib.parse.urlunsplit((scheme, netloc, path, query, ""))
+
+
+def load_existing_source_urls():
+    """Normalized set of every sources[].url and image.sourceUrl already in
+    articles.json. Used by list_source to auto-skip candidates that were
+    already harvested under this exact URL, so a repeat pass over the same
+    primary/aggregator sources doesn't re-surface hundreds of already-written
+    items (collabocafe/kotobukiya/gamers/atre/etc. reuse stable URLs across
+    passes; gnews/ceek do NOT because they wrap a fresh Google News redirect
+    token each crawl, so this optimization mainly helps the non-news sources)."""
+    if not ARTICLES_JSON.exists():
+        return set()
+    articles = json.loads(ARTICLES_JSON.read_text(encoding="utf-8"))
+    urls = set()
+    for a in articles:
+        for src in a.get("sources", []) or []:
+            norm = normalize_source_url(src.get("url", ""))
+            if norm:
+                urls.add(norm)
+        img = a.get("image") or {}
+        norm = normalize_source_url(img.get("sourceUrl", ""))
+        if norm:
+            urls.add(norm)
+    return urls
+
+
+def dedup_index():
+    """Lookup tables for dedup_check. Candidates are checked against existing articles. Each candidate is either:
+      - a Japanese keyword/title fragment -> substring-matched against
+        title/summary/content (works when the aggregator's wording matches
+        this repo's wording — often does NOT, since this repo tends to use
+        formal/official titles while aggregators use colloquial ones), or
+      - a source URL (collabocafe/gamers/atre/...) -> first checked exactly
+        against existing sources[].url and image.sourceUrl after URL
+        normalization, then its path tokens are cross-checked against existing
+        slugs AND image filenames under public/images/articles/. This catches
+        both direct source reuse and the common case where a candidate looks
+        "new" by title-keyword search alone but was already harvested under
+        different Japanese wording in a prior pass.
+      - "keyword|url" to run both checks for one candidate at once.
+    Token matches are a heuristic, not proof — always open the existing
+    article and compare dates/venue before concluding it's a true duplicate.
+    """
+    articles = json.loads(ARTICLES_JSON.read_text(encoding="utf-8"))
+    existing_slugs = [a["slug"] for a in articles]
+    image_stems = [p.stem for p in IMAGES_DIR.glob("*")] if IMAGES_DIR.exists() else []
+    slug_to_article = {a["slug"]: a for a in articles}
+    source_url_index = {}
+    for a in articles:
+        for src in a.get("sources", []) or []:
+            norm = normalize_source_url(src.get("url", ""))
+            if norm:
+                source_url_index.setdefault(norm, {})[a["slug"]] = a
+        img = a.get("image") or {}
+        norm = normalize_source_url(img.get("sourceUrl", ""))
+        if norm:
+            source_url_index.setdefault(norm, {})[a["slug"]] = a
+
+    excluded = load_excluded()
+    return articles, existing_slugs, image_stems, slug_to_article, source_url_index, excluded
+
+
+KEYWORD_RE = re.compile(r"[「『【](.{2,30}?)[」』】]|([A-Za-z][A-Za-z0-9'&.\- ]{3,}[A-Za-z0-9])|([ァ-ヴー・]{4,})")
+
+
+def title_keywords(title):
+    """Short proper-noun-ish fragments of a long title: bracketed names,
+    latin words, katakana runs. Full aggregator titles almost never substring-
+    match this repo's reworded titles (the gnews blindspot), but their
+    store/IP names do."""
+    kws = []
+    for m in KEYWORD_RE.finditer(title):
+        k = next(g for g in m.groups() if g).strip()
+        if k not in kws:
+            kws.append(k)
+    return kws
+
+
+def keyword_hits(title, articles, max_hits=5, max_body_hits=15):
+    """Keywords that hit 1..max_hits article titles/slugs. A word that also
+    shows up in many article bodies is generic (スタート, システム, ...) and
+    is dropped as noise."""
+    if len(title) < 15:
+        return []
+    out = []
+    for k in title_keywords(title):
+        kl = k.lower()
+        if sum(kl in a.get("content", "").lower() for a in articles) > max_body_hits:
+            continue
+        hits = [a for a in articles if kl in a.get("title", "").lower() or kl in a.get("slug", "")]
+        if 0 < len(hits) <= max_hits:
+            out.append(f"  KEYWORD MATCH ({k}):")
+            out += [f"    {a['slug']} | {a['title']} | {a['publishedAt']}" for a in hits]
+    return out
+
+
+def dedup_check(cand, idx):
+    """Return match lines for one candidate; empty list = NEW."""
+    articles, existing_slugs, image_stems, slug_to_article, source_url_index, excluded = idx
+    out = []
+    kw, _, url = cand.partition("|")
+
+    excluded_target = url or (kw if kw.startswith("http") else "")
+    if excluded_target:
+        rec = excluded.get(normalize_source_url(excluded_target))
+        if rec:
+            out.append(f"  PREVIOUSLY EXCLUDED ({rec.get('reason', '?')}, checked {rec.get('checked', '?')}):")
+            if rec.get("note"):
+                out.append(f"    {rec['note']}")
+
+    if kw and not kw.startswith("http"):
+        text_hits = [
+            (a["slug"], a["title"], a["publishedAt"])
+            for a in articles
+            if kw in a.get("title", "") or kw in a.get("summary", "") or kw in a.get("content", "")
+        ]
+        if text_hits:
+            out.append(f"  TEXT MATCH ({len(text_hits)}):")
+            for slug, title, pub in text_hits[:5]:
+                out.append(f"    {slug} | {title} | {pub}")
+        out += keyword_hits(kw, articles)
+    elif kw.startswith("http"):
+        url = kw  # only one arg given and it's a URL
+
+    target_url = url or (kw if kw.startswith("http") else "")
+    if target_url:
+        norm_target = normalize_source_url(target_url)
+        source_hits = list(source_url_index.get(norm_target, {}).values())
+        if source_hits:
+            out.append(f"  SOURCE URL MATCH ({norm_target}):")
+            for a in source_hits[:5]:
+                out.append(f"    {a['slug']} | {a['title']} | {a['publishedAt']}")
+
+        toks = slug_tokens(target_url)
+        hits = set()
+        for slug in existing_slugs + image_stems:
+            slug_l = slug.lower()
+            matched = [t for t in toks if t in slug_l]
+            if matched:
+                hits.add(slug)
+        if hits:
+            out.append(f"  SLUG/IMAGE TOKEN MATCH (tokens={toks}):")
+            for slug in sorted(hits)[:5]:
+                a = slug_to_article.get(slug)
+                if a:
+                    out.append(f"    {slug} | {a['title']} | {a['publishedAt']}")
+                else:
+                    out.append(f"    {slug} (image file only, no matching article slug — check manually)")
+
+    return out
+
+
+def cmd_dedup(candidates):
+    idx = dedup_index()
+    for cand in candidates:
+        print(f"\n=== {cand} ===")
+        print("\n".join(dedup_check(cand, idx)) or "  NEW (no match found — still confirm facts before writing)")
+
+
+def safe_detail(url):
+    try:
+        return detail_facts(url)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def cmd_scan(args):
+    """Mechanical part of a harvest pass in one go: list every source, dedup
+    every kept row, fetch detail for NEW ones, write a JSON queue. Editorial
+    calls (scope, merge, writing) stay with the human/agent reading the queue.
+    gnews rows are left as needs_resolve: their redirect URLs can't be fetched
+    and their dedup is unreliable (see SKILL.md gnews note)."""
+    out_path = Path(args[0]) if args else REPO_ROOT / "tmp" / "harvest-queue.json"
+    idx = dedup_index()
+    names = list(SOURCES) + EXTRA_SOURCES
+    queue, errors = [], {}
+    with ThreadPoolExecutor(8) as ex:
+        futs = {name: ex.submit(source_rows, name) for name in names}
+    for name, fut in futs.items():
+        try:
+            rows = fut.result()
+        except Exception as e:
+            errors[name] = str(e)
+            continue
+        for count, extra, title, url in filter_rows(rows)[0]:
+            hits = [h.strip() for h in dedup_check(f"{title}|{url}", idx)]
+            status = "maybe_dup" if hits else ("needs_resolve" if name == "gnews" else "new")
+            queue.append({
+                "source": name, "status": status, "title": title, "url": url,
+                "date": extra or "", "syndicated": count, "matches": hits,
+            })
+    new = [c for c in queue if c["status"] == "new"]
+    with ThreadPoolExecutor(8) as ex:
+        for c, d in zip(new, ex.map(safe_detail, [c["url"] for c in new])):
+            c["detail"] = d
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps({"errors": errors, "candidates": queue}, ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
+    counts = {}
+    for c in queue:
+        counts[c["status"]] = counts.get(c["status"], 0) + 1
+    print(f"wrote {out_path}: {counts}, source errors: {list(errors) or 'none'}")
+
+
+IMAGE_EXTS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def image_size(data):
+    """(width, height) from JPEG/PNG/GIF/WebP header bytes, or None."""
+    import struct
+
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return struct.unpack(">II", data[16:24])
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return struct.unpack("<HH", data[6:10])
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        kind = data[12:16]
+        if kind == b"VP8X":
+            return (int.from_bytes(data[24:27], "little") + 1, int.from_bytes(data[27:30], "little") + 1)
+        if kind == b"VP8 ":
+            w, h = struct.unpack("<HH", data[26:30])
+            return (w & 0x3FFF, h & 0x3FFF)
+        if kind == b"VP8L":
+            b = int.from_bytes(data[21:25], "little")
+            return ((b & 0x3FFF) + 1, ((b >> 14) & 0x3FFF) + 1)
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            seg_len = struct.unpack(">H", data[i + 2 : i + 4])[0]
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                h, w = struct.unpack(">HH", data[i + 5 : i + 9])
+                return (w, h)
+            i += 2 + seg_len
+    return None
+
+
+MAX_IMAGE_WIDTH = 1200
+
+
+def optimize_image(data, ext):
+    """Shrink to MAX_IMAGE_WIDTH and re-encode as JPEG (PNG when it has real
+    transparency). Returns (data, ext). No-op when Pillow isn't installed —
+    the site then simply serves the original file."""
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+    except ImportError:
+        print("NOTE: Pillow not installed — saving the image unoptimized", file=sys.stderr)
+        return data, ext
+    if ext == "gif":
+        return data, ext  # may be animated
+    im = Image.open(BytesIO(data))
+    resized = im.width > MAX_IMAGE_WIDTH
+    if resized:
+        im = im.resize((MAX_IMAGE_WIDTH, round(im.height * MAX_IMAGE_WIDTH / im.width)), Image.LANCZOS)
+    has_alpha = im.mode in ("RGBA", "LA", "P") and im.convert("RGBA").getextrema()[3][0] < 255
+    buf = BytesIO()
+    if has_alpha:
+        im.convert("RGBA").save(buf, "PNG", optimize=True)
+        out, out_ext = buf.getvalue(), "png"
+    else:
+        im.convert("RGB").save(buf, "JPEG", quality=85, optimize=True, progressive=True)
+        out, out_ext = buf.getvalue(), "jpg"
+    return (out, out_ext) if resized or len(out) < len(data) else (data, ext)
+
+
+def cmd_image(args):
+    """Download an article image to public/images/articles/<slug>.<ext> and
+    print the JSON `image` object to paste into the article. Refuses if the
+    slug already exists as an article or image file (never overwrites)."""
+    if len(args) < 2:
+        print('Usage: python3 harvest.py image "<image-url>" "<slug>" ["<source-page-url>"] ["<source-label>"] ["<alt>"]')
+        sys.exit(1)
+    url, slug = args[:2]
+    source_url = args[2] if len(args) > 2 else ""
+    source_label = args[3] if len(args) > 3 else ""
+    alt = args[4] if len(args) > 4 else ""
+    if not re.fullmatch(r"[a-z0-9-]+", slug):
+        sys.exit(f"REFUSED: slug {slug!r} must be lowercase letters, digits and hyphens")
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    clash = [p.name for p in IMAGES_DIR.glob(f"{slug}.*")]
+    if clash:
+        sys.exit(f"REFUSED: {clash} already exist — re-check dedup or pick another slug")
+    # og:image filenames are sometimes raw Japanese; urllib can't send non-ASCII.
+    url = urllib.parse.quote(url, safe=":/?&=%#~+@,;")
+    headers = dict(UA)
+    if source_url:
+        headers["Referer"] = source_url
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+        data, ctype = r.read(MAX_IMAGE_BYTES + 1), r.headers.get_content_type()
+    if len(data) > MAX_IMAGE_BYTES:
+        sys.exit(f"REFUSED: {url} is larger than {MAX_IMAGE_BYTES // (1024 * 1024)}MB")
+    ext = IMAGE_EXTS.get(ctype)
+    if not ext:
+        sys.exit(f"REFUSED: {url} is {ctype}, not an image")
+    data, ext = optimize_image(data, ext)
+    size = image_size(data)
+    if not size:
+        sys.exit(f"REFUSED: could not read the size of {url} ({ctype})")
+    dest = IMAGES_DIR / f"{slug}.{ext}"
+    with dest.open("xb") as f:  # "x" = never overwrite
+        f.write(data)
+    print(f"saved {dest.relative_to(REPO_ROOT)} ({len(data)} bytes, {size[0]}x{size[1]})")
+    print(json.dumps({
+        "src": f"/images/articles/{dest.name}",
+        "alt": alt,
+        "sourceLabel": source_label,
+        "sourceUrl": source_url,
+        "width": size[0],
+        "height": size[1],
+    }, ensure_ascii=False, indent=2))
+
+
+def cmd_next_id(_args):
+    articles = json.loads(ARTICLES_JSON.read_text(encoding="utf-8"))
+    print(max((a.get("id", 0) for a in articles), default=0) + 1)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return
+    cmd, *args = sys.argv[1:]
+    if cmd == "list":
+        cmd_list(args)
+    elif cmd == "detail":
+        cmd_detail(args)
+    elif cmd == "dedup":
+        cmd_dedup(args)
+    elif cmd == "exclude":
+        cmd_exclude(args)
+    elif cmd == "scan":
+        cmd_scan(args)
+    elif cmd == "image":
+        cmd_image(args)
+    elif cmd == "next-id":
+        cmd_next_id(args)
+    else:
+        print(__doc__)
+
+
+if __name__ == "__main__":
+    main()
