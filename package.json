@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "harvest": "python3 .claude/skills/ikebukuro-article-harvester/scripts/harvest.py"
   },
   "keywords": [],
   "author": "",
