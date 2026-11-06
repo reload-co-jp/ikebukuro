@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "harvest": "python3 .claude/skills/ikebukuro-article-harvester/scripts/harvest.py"
+    "harvest": "python3 .claude/skills/ikebukuro-article-harvester/scripts/harvest.py",
+    "harvest:auto": "mkdir -p tmp && claude -p \"ikebukuro-article-harvester skill の Quick Start 1〜8 をユーザー確認なしで最後まで実行し、Output When Harvesting 形式で報告せよ。判断に迷う候補は追加せず pnpm harvest exclude で保留ログに残す。pnpm test / pnpm build が失敗したら直すか該当記事を外して再実行。\" --allowedTools \"Bash(pnpm harvest:*) Bash(pnpm test:*) Bash(pnpm build:*) Read Grep Glob Edit(data/articles.json) Edit(.claude/skills/ikebukuro-article-harvester/references/excluded-candidates.jsonl) Write(tmp/**) WebFetch WebSearch Agent Skill\" | tee tmp/harvest-auto.log"
   },
   "keywords": [],
   "author": "",
