@@ -26,6 +26,15 @@ Sources for recurring Ikebukuro article harvesting. Everything under "Script sou
   - Mostly facility notices; P'PARCO pop-ups usually surface via collabocafe instead.
 - エソラ池袋 — `esola`
   - https://www.metropro-sc.jp/esola-ikebukuro/
+- アニメ東京ステーション — `animetokyo`
+  - https://animetokyo.jp/
+  - Free anime facility run by 日本動画協会 (池袋). Special exhibitions (企画展), screenings, workshops, talk events. Exhibitions are the main article material; small workshops are low priority.
+- 東京芸術劇場 — `geigeki`
+  - https://www.geigeki.jp/performance/ (paged `?paged=N`, first 3 pages)
+  - Listing row includes dates and hall. Concert/theatre heavy and many year-long series or rental exhibitions — add only notable events (festivals, big productions, free events, 池袋西口公園 tie-ins).
+- コニカミノルタプラネタリウム 満天 — `manten`
+  - https://planetarium.konicaminolta.jp/manten/
+  - Sunshine City. New programs, collaboration screenings, seasonal events. `【全館】` items run at all halls — write them from the 池袋 angle only if 満天 is included.
 
 ### Aggregators / discovery
 
@@ -52,11 +61,10 @@ Sources for recurring Ikebukuro article harvesting. Everything under "Script sou
 - Hareza池袋 / 東京建物 Brillia HALL / としまえんパーク — https://hareza-ikebukuro.com/ (403). Search `Hareza池袋 イベント`.
 - 豊島区 イベント — https://www.city.toshima.lg.jp/ (connection reset). Search `site:city.toshima.lg.jp イベント`.
 - サンシャイン水族館 — https://sunshinecity.jp/aquarium/event_performance/event/ (JS-rendered).
-- アニメ東京ステーション — https://animetokyo.jp/
-- アニメイト池袋本店 — https://www.animate.co.jp/shop/ikebukuro/
+- アニメイト池袋本店 — https://www.animate.co.jp/shop/ikebukuro/ (schedule page is JS-rendered).
+- 池袋西口公園 GLOBAL RING THEATRE — https://globalring-music.com/ (single landing page, no event list). Search `GLOBAL RING THEATRE 池袋 <月>` / `池袋西口公園 イベント`.
+- IWGPグルメ等の単発イベント公式サイト — e.g. https://iwgp-gourmet.com/ . One-event sites with no listing; search `池袋 グルメフェス <年>` / `池袋西口公園 フェス` and confirm on the event's own site.
 - トキワ荘マンガミュージアム — https://www.mangamuseum.toshima.tokyo.jp/ (blocked from this environment).
-- 東京芸術劇場 — https://www.geigeki.jp/performance/ (concert-heavy; add only notable events).
-- コニカミノルタプラネタリウム 満天 — https://planetarium.konicaminolta.jp/
 - X.com — search `池袋 イベント`, `池袋 コラボカフェ`, `池袋 POP UP`, `池袋 オープン`, `乙女ロード`, `サンシャインシティ 開催`. Official accounts only; confirm on official pages.
 
 ## Quick Search Patterns
