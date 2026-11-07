@@ -34,6 +34,7 @@ const sitemap = (): MetadataRoute.Sitemap => {
       lastModified: new Date(`${a.publishedAt}T09:00:00+09:00`),
       changeFrequency: "weekly" as const,
       priority: 0.8,
+      ...(a.image && { images: [absoluteUrl(a.image.src)] }),
     })),
   ]
 }

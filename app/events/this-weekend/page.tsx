@@ -1,13 +1,14 @@
 import { EventListing } from "@/components/event-listing"
 import { getWeekendEvents } from "@/lib/articles"
 import { formatShortDate, todayJst, weekendRange } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "今週末の池袋イベント",
   description:
     "今週の土日に池袋で開催されるイベント・グルメフェス・展示をまとめています。",
-  alternates: { canonical: "/events/this-weekend/" },
-}
+  path: "/events/this-weekend/",
+})
 
 const Page = () => {
   const today = todayJst()

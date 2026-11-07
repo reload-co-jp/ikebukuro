@@ -5,13 +5,14 @@ import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { getAllArticles } from "@/lib/articles"
 import { todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "新着記事一覧",
   description:
     "池袋のイベント・コラボカフェ・グルメフェス・展示などの最新記事一覧。",
-  alternates: { canonical: "/articles/" },
-}
+  path: "/articles/",
+})
 
 const Page = () => {
   const articles = getAllArticles()

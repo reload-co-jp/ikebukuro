@@ -17,6 +17,7 @@ import {
 } from "@/lib/articles"
 import { formatDotDate, formatLongDate, todayJst } from "@/lib/date"
 import { jsonLdScript } from "@/lib/json-ld"
+import { defaultOgImage } from "@/lib/seo"
 import { absoluteUrl, siteName } from "@/lib/site"
 
 type Props = { params: Promise<{ slug: string }> }
@@ -44,23 +45,27 @@ export const generateMetadata = async ({
     alternates: { canonical: url },
     openGraph: {
       type: "article",
+      siteName,
+      locale: "ja_JP",
       url,
       title: article.title,
       description: article.summary,
       publishedTime: getPublishedIso(article),
-      ...(article.image && {
-        images: [
-          {
-            url: article.image.src,
-            width: article.image.width,
-            height: article.image.height,
-            alt: article.image.alt,
-          },
-        ],
-      }),
+      section: CATEGORIES[article.categories[0]].name,
+      tags: article.tags,
+      images: [
+        article.image
+          ? {
+              url: article.image.src,
+              width: article.image.width,
+              height: article.image.height,
+              alt: article.image.alt,
+            }
+          : defaultOgImage,
+      ],
     },
     twitter: {
-      card: article.image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: article.title,
       description: article.summary,
     },
@@ -80,7 +85,8 @@ const buildJsonLd = (article: Article) => {
     url,
     inLanguage: "ja",
     keywords: article.tags.join(","),
-    ...(article.image && { image: absoluteUrl(article.image.src) }),
+    image: absoluteUrl(article.image?.src ?? defaultOgImage.url),
+    articleSection: CATEGORIES[article.categories[0]].name,
     author: {
       "@type": "Organization",
       name: `${siteName}編集部`,
@@ -110,8 +116,21 @@ const buildJsonLd = (article: Article) => {
         addressCountry: "JP",
       },
     },
-    ...(e.free ? { isAccessibleForFree: true } : {}),
-    url: article.sources[article.sources.length - 1]?.url ?? url,
+    image: absoluteUrl(article.image?.src ?? defaultOgImage.url),
+    ...(e.free
+      ? {
+          isAccessibleForFree: true,
+          offers: {
+            "@type": "Offer",
+            price: 0,
+            priceCurrency: "JPY",
+            availability: "https://schema.org/InStock",
+            url,
+          },
+        }
+      : {}),
+    // sources are listed official-first, so [0] is the official event page
+    url: article.sources[0]?.url ?? url,
   }
   return [news, event]
 }

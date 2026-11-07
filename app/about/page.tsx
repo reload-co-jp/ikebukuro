@@ -1,12 +1,13 @@
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { siteDescription, siteName } from "@/lib/site"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "このサイトについて",
   description: siteDescription,
-  alternates: { canonical: "/about/" },
-}
+  path: "/about/",
+})
 
 const Page = () => (
   <>

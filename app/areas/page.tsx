@@ -2,13 +2,14 @@ import Link from "next/link"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { AREAS, getAreaIds, getArticlesByArea } from "@/lib/articles"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "エリアから探す",
   description:
     "池袋東口・西口・サンシャインシティ・池袋駅・南長崎・目白など、エリア別に池袋のイベントを探せます。",
-  alternates: { canonical: "/areas/" },
-}
+  path: "/areas/",
+})
 
 const Page = () => (
   <>
