@@ -10,6 +10,7 @@ import {
   isCategoryId,
 } from "@/lib/articles"
 import { todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
 type Props = { params: Promise<{ category: string }> }
 
@@ -24,11 +25,11 @@ export const generateMetadata = async ({
   const { category } = await params
   if (!isCategoryId(category)) return {}
   const name = CATEGORIES[category].name
-  return {
+  return pageMetadata({
     title: `池袋の${name}イベント・ニュース`,
     description: `池袋で開催される${name}関連のイベント・最新情報をまとめています。`,
-    alternates: { canonical: `/categories/${category}/` },
-  }
+    path: `/categories/${category}/`,
+  })
 }
 
 const Page = async ({ params }: Props) => {

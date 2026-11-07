@@ -5,6 +5,7 @@ import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { AREAS, getAreaIds, getArticlesByArea, isAreaId } from "@/lib/articles"
 import { todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
 type Props = { params: Promise<{ area: string }> }
 
@@ -17,11 +18,11 @@ export const generateMetadata = async ({
 }: Props): Promise<Metadata> => {
   const { area } = await params
   if (!isAreaId(area)) return {}
-  return {
+  return pageMetadata({
     title: `${AREAS[area].name}のイベント・最新情報`,
     description: AREAS[area].description,
-    alternates: { canonical: `/areas/${area}/` },
-  }
+    path: `/areas/${area}/`,
+  })
 }
 
 const Page = async ({ params }: Props) => {

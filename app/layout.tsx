@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import Script from "next/script"
 import { SiteFooter, SiteHeader, SiteSidebar } from "@/components/layout"
 import { jsonLdScript } from "@/lib/json-ld"
+import { defaultOgImage, logoPath } from "@/lib/seo"
 import {
   absoluteUrl,
   siteDescription,
@@ -25,8 +26,12 @@ export const metadata: Metadata = {
     siteName,
     locale: "ja_JP",
     type: "website",
+    url: "/",
+    title: `${siteName}｜池袋のイベント・コラボ・最新情報`,
+    description: siteDescription,
+    images: [defaultOgImage],
   },
-  twitter: { card: "summary" },
+  twitter: { card: "summary_large_image" },
   robots: {
     index: true,
     follow: true,
@@ -46,7 +51,9 @@ const siteJsonLd = [
     url: absoluteUrl("/"),
     name: siteName,
     alternateName: siteNameEn,
+    description: siteDescription,
     inLanguage: "ja",
+    publisher: { "@id": absoluteUrl("/#organization") },
   },
   {
     "@context": "https://schema.org",
@@ -54,6 +61,12 @@ const siteJsonLd = [
     "@id": absoluteUrl("/#organization"),
     name: siteName,
     url: absoluteUrl("/"),
+    logo: {
+      "@type": "ImageObject",
+      url: absoluteUrl(logoPath),
+      width: 512,
+      height: 512,
+    },
   },
 ]
 

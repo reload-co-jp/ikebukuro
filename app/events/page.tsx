@@ -5,13 +5,14 @@ import { EVENT_NAV } from "@/components/nav"
 import { PageHeader, Section } from "@/components/page-header"
 import { getOngoingEvents, getUpcomingEvents } from "@/lib/articles"
 import { formatLongDate, todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "池袋のイベント一覧（開催中・開催予定）",
   description:
     "池袋・サンシャインシティ・池袋西口公園などで開催中、開催予定のイベントを日付順にまとめています。",
-  alternates: { canonical: "/events/" },
-}
+  path: "/events/",
+})
 
 const Page = () => {
   const today = todayJst()

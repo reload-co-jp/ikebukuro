@@ -1,13 +1,14 @@
 import { EventListing } from "@/components/event-listing"
 import { getFreeEvents } from "@/lib/articles"
 import { todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "池袋の無料イベント",
   description:
     "入場無料で楽しめる池袋のイベント・展示・POPUPをまとめています。",
-  alternates: { canonical: "/events/free/" },
-}
+  path: "/events/free/",
+})
 
 const Page = () => {
   const today = todayJst()

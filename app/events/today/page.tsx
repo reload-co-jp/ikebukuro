@@ -1,13 +1,14 @@
 import { EventListing } from "@/components/event-listing"
 import { getOngoingEvents } from "@/lib/articles"
 import { formatLongDate, todayJst } from "@/lib/date"
+import { pageMetadata } from "@/lib/seo"
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "今日の池袋イベント",
   description:
     "今日、池袋で開催中のイベント・展示・コラボカフェ・POPUPをまとめています。",
-  alternates: { canonical: "/events/today/" },
-}
+  path: "/events/today/",
+})
 
 const Page = () => {
   const today = todayJst()
