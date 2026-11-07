@@ -280,11 +280,23 @@ SOURCES = {
         href_filter=lambda h: bool(re.search(r"/event/\d{6,7}/$", h or "")),
         base="",
     ),
+    "animetokyo": dict(
+        url="https://animetokyo.jp/",
+        href_filter=lambda h: bool(re.search(r"animetokyo\.jp/archives/events/[a-z]+\d+/$", h or "")),
+        base="",
+    ),
+    "manten": dict(
+        url="https://planetarium.konicaminolta.jp/manten/",
+        href_filter=lambda h: bool(re.search(r"planetarium\.konicaminolta\.jp/(event|program)/[a-z0-9_]+/\?hall=manten$", h or ""))
+        and "recruit" not in h,
+        base="",
+    ),
 }
 
 GNEWS_URL = "https://news.google.com/rss/search?q=%E6%B1%A0%E8%A2%8B&hl=ja&gl=JP&ceid=JP:ja"
 CEEK_URL = "https://news.ceek.jp/search.cgi?q=%E6%B1%A0%E8%A2%8B&summary=1"
-EXTRA_SOURCES = ["walkerplus", "gnews", "ceek"]
+GEIGEKI_URL = "https://www.geigeki.jp/performance/"
+EXTRA_SOURCES = ["walkerplus", "geigeki", "gnews", "ceek"]
 
 # Area words for the Ikebukuro site (豊島区). Used to warn on detail pages that
 # never mention the area (multi-city tours on collabocafe/prtimes/gnews).
@@ -431,6 +443,37 @@ def list_walkerplus(max_pages=8):
     return rows
 
 
+def list_geigeki(max_pages=3):
+    """東京芸術劇場 performance list. The only link per card is "詳細を見る",
+    so title / 日程 / 会場 are read from the p-performance-item card itself."""
+    rows, seen = [], set()
+    for page in range(1, max_pages + 1):
+        url = GEIGEKI_URL + ("" if page == 1 else f"?paged={page}")
+        try:
+            text = fetch(url)
+        except Exception:
+            if page == 1:
+                raise
+            break
+        cards = re.split(r'<div class="p-performance-item"', text)[1:]
+        if not cards:
+            break
+        for card in cards:
+            href = re.search(r'href="(https://www\.geigeki\.jp/performance/[a-z0-9_-]+/)"', card)
+            title = re.search(r'p-performance-item__title">(.*?)</h2>', card, re.S)
+            if not href or not title or href.group(1) in seen:
+                continue
+            seen.add(href.group(1))
+            data = dict(
+                (dec(re.sub(r"<[^>]+>", "", k)).strip(), dec(re.sub(r"<[^>]+>|\s+", " ", v)).strip())
+                for k, v in re.findall(r"<dt>(.*?)</dt>\s*<dd>(.*?)</dd>", card, re.S)
+            )
+            name = dec(re.sub(r"<[^>]+>|\s+", " ", title.group(1))).strip()
+            venue = re.sub(r"^東京芸術劇場\s*", "", data.get("会場", "")).strip(" -")
+            rows.append((data.get("日程", ""), f"{name} @ 東京芸術劇場 {venue}".strip(), href.group(1)))
+    return rows
+
+
 def list_source(name, limit=80, skip_known=True):
     print_items(name, source_rows(name), limit, skip_known=skip_known)
 
@@ -458,6 +501,8 @@ def source_rows(name):
     if name == "walkerplus":
         rows = list_walkerplus()
         return rows
+    if name == "geigeki":
+        return list_geigeki()
     cfg = SOURCES[name]
     items = extract(cfg["url"], cfg["href_filter"], cfg["base"])
     return [(None, t, href) for t, href in items]
