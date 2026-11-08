@@ -16,12 +16,35 @@ import {
   getUpcomingEvents,
   getWeekendEvents,
 } from "@/lib/articles"
-import { formatPeriod, todayJst } from "@/lib/date"
+import {
+  formatLongDate,
+  formatMonth,
+  formatPeriod,
+  monthOf,
+  todayJst,
+} from "@/lib/date"
 import { jsonLdScript } from "@/lib/json-ld"
-import { absoluteUrl } from "@/lib/site"
+import { pageMetadata } from "@/lib/seo"
+import { absoluteUrl, siteName } from "@/lib/site"
 
-export const metadata = {
-  alternates: { canonical: "/" },
+const HOME_TITLE = `池袋イベント情報【今日・今週末】開催中のイベントまとめ｜${siteName}`
+
+// Evaluated at build time; the site is rebuilt daily so the counts stay fresh.
+export const generateMetadata = () => {
+  const today = todayJst()
+  const ongoing = getOngoingEvents(today).length
+  const upcoming = getUpcomingEvents(today).length
+  const base = pageMetadata({
+    title: HOME_TITLE,
+    description: `池袋イベント情報を毎日更新。今日開催中のイベント${ongoing}件、開催予定${upcoming}件を掲載中。サンシャインシティ・池袋駅周辺・池袋西口公園のイベント、コラボカフェ、POPUP、グルメフェス、展示を今日・今週末・無料などの条件で探せます。`,
+    path: "/",
+  })
+  return {
+    ...base,
+    title: { absolute: HOME_TITLE },
+    openGraph: { ...base.openGraph, title: HOME_TITLE },
+    twitter: { ...base.twitter, title: HOME_TITLE },
+  }
 }
 
 const KEYWORD_LIMIT = 14
@@ -78,9 +101,18 @@ const Page = () => {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
-      <h1 className="visually-hidden">
-        イケブクロLive｜池袋の最新イベント・コラボ・ニュース
-      </h1>
+      <header className="home-intro">
+        <h1 className="home-intro__title">
+          池袋イベント情報｜今日・今週末の開催中イベント
+        </h1>
+        <p className="home-intro__lead">
+          {formatLongDate(today)}更新。池袋で開催中のイベント
+          <Link href="/events/today/">{ongoing.length}件</Link>
+          、開催予定のイベント
+          <Link href="/events/">{upcoming.length}件</Link>
+          を掲載中。サンシャインシティ、池袋駅周辺、池袋西口公園などのイベント・コラボカフェ・POPUP・グルメフェス・展示情報を毎日お届けします。
+        </p>
+      </header>
 
       <PickupCarousel events={pickup} today={today} />
 
@@ -212,6 +244,10 @@ const Page = () => {
         title="詳細を見る"
         links={[
           { href: "/events/today/", label: "今日開催中の池袋イベント" },
+          {
+            href: `/events/month/${monthOf(today)}/`,
+            label: `${formatMonth(monthOf(today))}の池袋イベント`,
+          },
           { href: "/events/free/", label: "入場無料で楽しめるイベント" },
           { href: "/categories/collab/", label: "コラボカフェ・POPUPストア" },
           { href: "/areas/sunshine/", label: "サンシャインシティのイベント" },
