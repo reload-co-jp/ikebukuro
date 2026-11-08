@@ -1,5 +1,5 @@
 import articlesData from "../data/articles.json"
-import { addDays, weekendRange } from "./date"
+import { addDays, addMonths, monthOf, monthRange, weekendRange } from "./date"
 
 export const AREAS = {
   east: {
@@ -176,6 +176,32 @@ export const getFreeEvents = (today: string): EventArticle[] =>
   getEventArticles()
     .filter((a) => a.event.free && (a.event.endDate ?? FAR_FUTURE) >= today)
     .sort(byStartAsc)
+
+/** Events running at any point during a "YYYY-MM" month, soonest start first. */
+export const getEventsInMonth = (month: string): EventArticle[] => {
+  const { start, end } = monthRange(month)
+  return getEventArticles()
+    .filter((a) => overlaps(a.event, start, end))
+    .sort(byStartAsc)
+}
+
+/**
+ * Months that get a /events/month/[month]/ page: from the first month with a
+ * listed event through `horizon` months after `today` (open-ended events
+ * would otherwise make the list infinite), skipping months with no events.
+ */
+export const getEventMonths = (today: string, horizon = 3): string[] => {
+  const events = getEventArticles()
+  if (events.length === 0) return []
+  const first = events
+    .map((a) => monthOf(a.event.startDate))
+    .reduce((a, b) => (a < b ? a : b))
+  const last = addMonths(monthOf(today), horizon)
+  const months: string[] = []
+  for (let m = first; m <= last; m = addMonths(m, 1))
+    if (getEventsInMonth(m).length > 0) months.push(m)
+  return months
+}
 
 export const getArticlesByArea = (area: AreaId): Article[] =>
   getAllArticles().filter((a) => a.area === area)

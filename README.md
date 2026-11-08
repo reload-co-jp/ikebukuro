@@ -17,6 +17,7 @@
 | `/` | トップ（今週末・開催予定・新着・まもなく終了・エリア/ジャンル） |
 | `/events/` | 開催中・開催予定のイベント一覧 |
 | `/events/today/` `/events/this-weekend/` `/events/this-week/` `/events/free/` | 日付・条件別のイベント一覧 |
+| `/events/month/[YYYY-MM]/` | 月別のイベント一覧（「池袋イベント 11月」など月指定の検索向け） |
 | `/articles/` | 新着記事一覧 |
 | `/articles/[slug]/` | 記事詳細（NewsArticle / Event の JSON-LD 付き） |
 | `/areas/` `/areas/[area]/` | エリア別一覧（東口・西口・サンシャインシティ・池袋駅・南長崎・目白・全域） |

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { siteName } from "@/lib/site"
+import { absoluteUrl, siteName } from "@/lib/site"
 
 /** Site-wide share image, used when a page has no image of its own. */
 export const defaultOgImage = {
@@ -46,4 +46,30 @@ export const pageMetadata = ({
     title: `${title} | ${siteName}`,
     description,
   },
+})
+
+/**
+ * ItemList structured data for a page that lists event articles, so search
+ * engines can tie the list page to each event's detail page.
+ */
+export const eventItemListJsonLd = ({
+  name,
+  path,
+  events,
+}: {
+  name: string
+  path: string
+  events: { title: string; slug: string }[]
+}) => ({
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name,
+  url: absoluteUrl(path),
+  numberOfItems: events.length,
+  itemListElement: events.map((a, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name: a.title,
+    url: absoluteUrl(`/articles/${a.slug}/`),
+  })),
 })

@@ -6,6 +6,8 @@ import {
   CATEGORIES,
   getAllArticles,
   getEndingSoonEvents,
+  getEventMonths,
+  getEventsInMonth,
   getEventStatus,
   getEventsWithin,
   getOngoingEvents,
@@ -136,5 +138,21 @@ describe("getWeekendEvents ordering", () => {
       .map((a) => a.event.startDate >= "2026-11-07")
       .lastIndexOf(true)
     expect(lastStarting).toBeLessThan(firstRunning)
+  })
+})
+
+describe("monthly event pages", () => {
+  it("lists only months that have overlapping events", () => {
+    const months = getEventMonths("2026-11-08")
+    expect(months.length).toBeGreaterThan(0)
+    expect([...months].sort()).toEqual(months)
+    for (const m of months) {
+      const events = getEventsInMonth(m)
+      expect(events.length).toBeGreaterThan(0)
+      for (const a of events) {
+        expect(a.event.startDate <= `${m}-31`).toBe(true)
+        expect((a.event.endDate ?? "9999-12-31") >= `${m}-01`).toBe(true)
+      }
+    }
   })
 })

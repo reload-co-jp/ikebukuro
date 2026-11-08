@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   addDays,
+  addMonths,
+  formatMonth,
+  isMonthKey,
+  monthRange,
   daysBetween,
   formatLongDate,
   formatPeriod,
@@ -59,5 +63,26 @@ describe("weekendRange", () => {
       start: "2026-11-07",
       end: "2026-11-08",
     })
+  })
+})
+
+describe("month helpers", () => {
+  it("returns the first and last day of a month", () => {
+    expect(monthRange("2026-02")).toEqual({
+      start: "2026-02-01",
+      end: "2026-02-28",
+    })
+    expect(monthRange("2028-02").end).toBe("2028-02-29")
+  })
+
+  it("moves across year boundaries", () => {
+    expect(addMonths("2026-12", 1)).toBe("2027-01")
+    expect(addMonths("2026-01", -1)).toBe("2025-12")
+  })
+
+  it("formats and validates month keys", () => {
+    expect(formatMonth("2026-11")).toBe("2026年11月")
+    expect(isMonthKey("2026-11")).toBe(true)
+    expect(isMonthKey("2026-13")).toBe(false)
   })
 })

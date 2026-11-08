@@ -3,8 +3,10 @@ import {
   getAllArticles,
   getAreaIds,
   getCategoryIds,
+  getEventMonths,
   getLatestPublishedAt,
 } from "@/lib/articles"
+import { todayJst } from "@/lib/date"
 import { absoluteUrl } from "@/lib/site"
 
 export const dynamic = "force-static"
@@ -24,6 +26,7 @@ const sitemap = (): MetadataRoute.Sitemap => {
     daily("/events/this-weekend/", 0.9),
     daily("/events/this-week/", 0.8),
     daily("/events/free/", 0.8),
+    ...getEventMonths(todayJst()).map((m) => daily(`/events/month/${m}/`, 0.7)),
     daily("/articles/", 0.8),
     daily("/areas/", 0.6),
     ...getAreaIds().map((id) => daily(`/areas/${id}/`, 0.7)),

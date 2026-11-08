@@ -56,3 +56,32 @@ export const weekendRange = (today: string): { start: string; end: string } => {
 /** Number of days between two dates (b - a). */
 export const daysBetween = (a: string, b: string): number =>
   Math.round((parse(b).getTime() - parse(a).getTime()) / 86_400_000)
+
+/** "2026-11-07" -> "2026-11" */
+export const monthOf = (date: string): string => date.slice(0, 7)
+
+/** First and last day of a "YYYY-MM" month. */
+export const monthRange = (month: string): { start: string; end: string } => {
+  const [y, m] = month.split("-").map(Number)
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(last).padStart(2, "0")}`,
+  }
+}
+
+/** "2026-11" -> "2026-12" (negative `months` goes back). */
+export const addMonths = (month: string, months: number): string => {
+  const [y, m] = month.split("-").map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + months, 1))
+  return format(d).slice(0, 7)
+}
+
+/** "2026-11" -> "2026年11月" */
+export const formatMonth = (month: string): string => {
+  const [y, m] = month.split("-").map(Number)
+  return `${y}年${m}月`
+}
+
+export const isMonthKey = (value: string): boolean =>
+  /^\d{4}-(0[1-9]|1[0-2])$/.test(value)

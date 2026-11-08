@@ -776,6 +776,28 @@ a.chip[aria-current="page"] {
   }
 }
 
+/* ---------- home intro ---------- */
+.home-intro {
+  margin-bottom: 1.25rem;
+}
+
+.home-intro__title {
+  color: var(--color-heading);
+  font-size: clamp(1.125rem, 3.4vw, 1.5rem);
+  line-height: 1.4;
+}
+
+.home-intro__lead {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  margin-top: 0.375rem;
+  max-width: 52rem;
+}
+
+.home-intro__lead a {
+  font-weight: 700;
+}
+
 /* ---------- home layout & widgets ---------- */
 .home-layout {
   display: grid;
