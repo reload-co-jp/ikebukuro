@@ -316,6 +316,12 @@ a {
   text-decoration: underline;
 }
 
+.site-footer__sister {
+  border-top: 1px solid rgba(34, 37, 43, 0.1);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
 /* ---------- headings ---------- */
 .kicker {
   color: var(--color-link);

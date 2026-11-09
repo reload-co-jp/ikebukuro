@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { CATEGORIES, getCategoryIds } from "@/lib/articles"
 import { siteName, siteTagline } from "@/lib/site"
+import { getSisterSites, SISTER_SITES_HEADING } from "@/lib/sister-sites"
 import { HEADER_NAV, SIDEBAR_NAV } from "./nav"
 
 /** Wordmark: owl mark + "イケブクロLive" in the pop colours of the Akiba site. */
@@ -106,5 +107,16 @@ export const SiteFooter = () => (
       {" / "}
       <Link href="/about/">このサイトについて</Link>
     </p>
+    <nav aria-label={SISTER_SITES_HEADING.ja} className="site-footer__sister">
+      {SISTER_SITES_HEADING.ja}：
+      {getSisterSites("ikebukuro").map((site, i) => (
+        <span key={site.id}>
+          {i > 0 && " / "}
+          <a href={site.url} title={site.name}>
+            {site.label.ja}
+          </a>
+        </span>
+      ))}
+    </nav>
   </footer>
 )
