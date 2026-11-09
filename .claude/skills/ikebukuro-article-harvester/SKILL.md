@@ -33,7 +33,7 @@ Use when asked "池袋の記事を追加", "新しい記事を拾って", "イ�
 5. Dedupe every remaining candidate in one batch: `pnpm harvest dedup "<keyword>|<url>" ... > tmp/dedup.txt 2>&1`, then read the file.
 6. Confirm facts for each candidate from the primary/official page (date, venue, price, hours, reservation). Delegate batched page fetches to the `web-scraper` agent when there are many URLs; keep editorial decisions here.
 7. Save a thumbnail for each new article with `pnpm harvest image` (see [Images](#images)).
-8. Write all new articles and merges in one edit of `data/articles.json` (see [Article Format](#article-format)), log every held/rejected URL with `pnpm harvest exclude`, then run `pnpm test` and `pnpm build`.
+8. Write all new articles and merges in one edit of `data/articles.json` (see [Article Format](#article-format)), log every held/rejected URL with `pnpm harvest exclude`, then run `pnpm geocode:events` (adds `latitude`/`longitude` from `address` via the GSI address-search API; only street-number-level matches are written, never guess coordinates by hand), `pnpm test` and `pnpm build`.
 
 ## Harvest Script
 
@@ -99,7 +99,7 @@ Follow the schema in `README.md` (「記事の追加」) and `lib/articles.ts`:
 - `categories`: from `anime`, `collab`, `gourmet`, `art`, `festival`, `music`, `family`, `seasonal` (main one first).
 - `tags`: venue, IP/brand and topic keywords.
 - `sources`: every page used, official first, with clear labels (`公式サイト`, `サンシャインシティ イベントページ`, `PR TIMES プレスリリース`, `池袋タイムズ 記事` ...).
-- `event`: only for dated events — `name`, `venue`, `address` (optional), `startDate`, `endDate` (omit if open-ended), `hours` (optional), `price`, `free`, `reservation`.
+- `event`: only for dated events — `name`, `venue`, `address` (optional), `latitude`/`longitude` (optional, written by `pnpm geocode:events`), `startDate`, `endDate` (omit if open-ended), `hours` (optional), `price`, `free`, `reservation`.
 - `image` (optional): the object printed by `pnpm harvest image` — `src`, `alt`, `sourceLabel`, `sourceUrl`, `width`, `height`. Place it after `sources`. Without it the card falls back to the category-colour typographic thumbnail.
 
 ## Images

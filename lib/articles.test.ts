@@ -52,6 +52,18 @@ describe("articles.json", () => {
     }
   })
 
+  it("has venue coordinates only with an address, inside Toshima", () => {
+    for (const a of articles) {
+      const e = a.event
+      if (!e || (e.latitude == null && e.longitude == null)) continue
+      expect(e.address).toBeTruthy()
+      expect(e.latitude).toBeGreaterThan(35.7)
+      expect(e.latitude).toBeLessThan(35.76)
+      expect(e.longitude).toBeGreaterThan(139.68)
+      expect(e.longitude).toBeLessThan(139.75)
+    }
+  })
+
   it("has saved images with credits", () => {
     for (const a of articles) {
       if (!a.image) continue
