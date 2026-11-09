@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { googleMapsUrl, PlaceMap } from "@/components/place-map"
 import { notFound } from "next/navigation"
 import { ArticleGrid, StatusBadge } from "@/components/article-card"
 import { Breadcrumb } from "@/components/breadcrumb"
@@ -115,6 +116,16 @@ const buildJsonLd = (article: Article) => {
         addressRegion: "東京都",
         addressCountry: "JP",
       },
+      ...(e.latitude != null && e.longitude != null
+        ? {
+            geo: {
+              "@type": "GeoCoordinates",
+              latitude: e.latitude,
+              longitude: e.longitude,
+            },
+            hasMap: googleMapsUrl(e.latitude, e.longitude),
+          }
+        : {}),
     },
     image: absoluteUrl(article.image?.src ?? defaultOgImage.url),
     ...(e.free
@@ -227,6 +238,13 @@ const Page = async ({ params }: Props) => {
               <dt>予約</dt>
               <dd>{e.reservation ? "チケット・予約が必要" : "不要"}</dd>
             </dl>
+            {e.latitude != null && e.longitude != null && (
+              <PlaceMap
+                latitude={e.latitude}
+                longitude={e.longitude}
+                name={e.venue}
+              />
+            )}
             <p className="event-box__links">
               <Link href="/events/today/">
                 → 今日開催の池袋イベント一覧を見る

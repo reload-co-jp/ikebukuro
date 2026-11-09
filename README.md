@@ -57,6 +57,8 @@
     "name": "イベント名",
     "venue": "会場",
     "address": "東京都豊島区…",     // 任意
+    "latitude": 35.72929,           // 任意。pnpm geocode:events で address から付与
+    "longitude": 139.719193,        // 緯度経度があると記事に会場の地図を表示
     "startDate": "2026-11-07",
     "endDate": "2026-11-08",        // 終了日未定なら省略
     "hours": "10:00〜18:00",         // 任意

@@ -57,6 +57,9 @@ export type ArticleEvent = {
   name: string
   venue: string
   address?: string
+  /** 会場の緯度経度。scripts/geocode-events.mjs で address から付与する。 */
+  latitude?: number
+  longitude?: number
   startDate: string
   /** 終了日未定（ロングラン）の場合は省略する。 */
   endDate?: string
