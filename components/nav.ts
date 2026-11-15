@@ -28,7 +28,10 @@ export const SIDEBAR_NAV = [
   { href: "/areas/sunshine/", label: "サンシャインシティ" },
   { href: "/areas/east/", label: "池袋東口" },
   { href: "/areas/west/", label: "池袋西口" },
+  { href: "/spots/tobu-ikebukuro/", label: "東武百貨店の催事" },
+  { href: "/spots/ikebukuro-parco/", label: "池袋PARCOのPOP UP" },
   { href: "/areas/", label: "エリアから探す" },
+  { href: "/spots/", label: "スポットから探す" },
   { href: "/articles/", label: "新着記事" },
   { href: "/about/", label: "このサイトについて" },
 ] as const

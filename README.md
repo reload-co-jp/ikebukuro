@@ -22,6 +22,7 @@
 | `/articles/[slug]/` | 記事詳細（NewsArticle / Event の JSON-LD 付き） |
 | `/areas/` `/areas/[area]/` | エリア別一覧（東口・西口・サンシャインシティ・池袋駅・南長崎・目白・全域） |
 | `/categories/[category]/` | ジャンル別一覧 |
+| `/spots/` `/spots/[spot]/` | スポット別一覧（サンシャインシティ・東武百貨店・池袋PARCO など。`lib/spots.ts` で定義し、該当記事が2件以上あるスポットだけ生成） |
 | `/about/` | サイトについて・編集方針 |
 | `/rss.xml` `/sitemap.xml` `/robots.txt` | フィード・SEO |
 
@@ -41,6 +42,7 @@
   "summary": "概要文（description にも使用）",
   "content": "## 概要\n\n...\n\n## 内容\n\n...\n\n## 開催情報\n\n...\n\n## こんな人におすすめ\n\n...",
   "publishedAt": "2026-11-04",
+  "updatedAt": "2026-11-10",       // 任意。公開後に内容を更新した日（dateModified・サイトマップ・記事ページに反映）
   "area": "sunshine",              // lib/articles.ts の AREAS のキー
   "categories": ["anime"],         // lib/articles.ts の CATEGORIES のキー（先頭がメイン）
   "tags": ["サンシャインシティ"],
@@ -70,6 +72,8 @@
 ```
 
 編集方針：主催者の公式サイト・プレスリリース・施設の公式ページで事実を確認し、`sources` に出典を必ず記載します。サムネイルは公式サイト・プレスリリースの告知画像（og:image）を `public/images/articles/` に保存し、記事ページに画像出典を表示します。画像がない記事はカテゴリ色のタイポグラフィで表示します。
+
+重複記事を統合して記事を削除するときは、`data/redirects.json` に `"旧slug": "統合先slug"` を追加します。旧URLには統合先へ移動する noindex のページ（canonical は統合先）が生成されます。
 
 `pnpm test` で記事データの整合性（ID・slug の重複、日付形式、エリア/カテゴリのキーなど）を検証できます。
 

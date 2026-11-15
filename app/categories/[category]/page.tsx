@@ -9,7 +9,8 @@ import {
   getCategoryIds,
   isCategoryId,
 } from "@/lib/articles"
-import { todayJst } from "@/lib/date"
+import { getEventStatus, isEventArticle } from "@/lib/articles"
+import { formatMonth, monthOf, todayJst } from "@/lib/date"
 import { pageMetadata } from "@/lib/seo"
 
 type Props = { params: Promise<{ category: string }> }
@@ -24,29 +25,40 @@ export const generateMetadata = async ({
 }: Props): Promise<Metadata> => {
   const { category } = await params
   if (!isCategoryId(category)) return {}
-  const name = CATEGORIES[category].name
+  const today = todayJst()
+  const { seoTitle, lead } = CATEGORIES[category]
+  const current = countCurrent(category, today)
   return pageMetadata({
-    title: `池袋の${name}イベント・ニュース`,
-    description: `池袋で開催される${name}関連のイベント・最新情報をまとめています。`,
+    title: `${seoTitle}【${formatMonth(monthOf(today))}最新】開催中・開催予定`,
+    description: `${lead}開催中・開催予定は${current}件。`,
     path: `/categories/${category}/`,
   })
 }
 
+const countCurrent = (
+  category: Parameters<typeof getArticlesByCategory>[0],
+  today: string
+) =>
+  getArticlesByCategory(category)
+    .filter(isEventArticle)
+    .filter((a) => getEventStatus(a.event, today) !== "ended").length
+
 const Page = async ({ params }: Props) => {
   const { category } = await params
   if (!isCategoryId(category)) notFound()
-  const name = CATEGORIES[category].name
+  const { name, seoTitle, lead } = CATEGORIES[category]
+  const today = todayJst()
   return (
     <>
       <Breadcrumb items={[{ name, href: `/categories/${category}/` }]} />
       <PageHeader
         kicker="Category"
-        title={`池袋の${name}イベント・ニュース`}
-        lead={`池袋エリアで開催される${name}関連のイベントや最新情報です。`}
+        title={`${seoTitle}【${formatMonth(monthOf(today))}最新】`}
+        lead={`${lead}開催中・開催予定は${countCurrent(category, today)}件です。`}
       />
       <ArticleGrid
         articles={getArticlesByCategory(category)}
-        today={todayJst()}
+        today={today}
         headingLevel={2}
       />
     </>

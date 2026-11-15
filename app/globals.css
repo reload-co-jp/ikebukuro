@@ -1448,3 +1448,45 @@ a.chip[aria-current="page"] {
 .pickup__link .thumb--photo {
   padding: 0;
 }
+
+.spot-info {
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.25rem 1rem;
+  grid-template-columns: 4rem 1fr;
+  margin: 0 0 1.5rem;
+}
+
+.spot-info dt {
+  color: var(--color-muted);
+}
+
+.spot-info dd a {
+  color: var(--color-link);
+}
+
+.ended-notice {
+  background: #f4f5f7;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+  padding: 0.875rem 1rem;
+}
+
+.ended-notice p {
+  margin: 0 0 0.5rem;
+}
+
+.ended-notice ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ended-notice a {
+  color: var(--color-link);
+}

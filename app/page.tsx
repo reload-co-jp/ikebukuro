@@ -250,7 +250,16 @@ const Page = () => {
           },
           { href: "/events/free/", label: "入場無料で楽しめるイベント" },
           { href: "/categories/collab/", label: "コラボカフェ・POPUPストア" },
-          { href: "/areas/sunshine/", label: "サンシャインシティのイベント" },
+          {
+            href: "/spots/sunshine-city/",
+            label: "サンシャインシティのイベント",
+          },
+          {
+            href: "/spots/tobu-ikebukuro/",
+            label: "東武百貨店 池袋本店の催事",
+          },
+          { href: "/spots/ikebukuro-parco/", label: "池袋PARCOのPOP UP" },
+          { href: "/spots/", label: "スポットから探す" },
         ]}
       />
 

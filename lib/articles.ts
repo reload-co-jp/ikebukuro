@@ -1,4 +1,5 @@
 import articlesData from "../data/articles.json"
+import redirectsData from "../data/redirects.json"
 import { addDays, addMonths, monthOf, monthRange, weekendRange } from "./date"
 
 export const AREAS = {
@@ -41,14 +42,54 @@ export const AREAS = {
 export type AreaId = keyof typeof AREAS
 
 export const CATEGORIES = {
-  anime: { name: "アニメ・マンガ", color: "#22b8d4" },
-  collab: { name: "コラボカフェ・POPUP", color: "#ffb400" },
-  gourmet: { name: "グルメ", color: "#ff5c8f" },
-  art: { name: "展示・アート", color: "#8b6fe0" },
-  festival: { name: "フェス・祭り", color: "#e6432f" },
-  music: { name: "音楽・ライブ", color: "#4f8ff7" },
-  family: { name: "親子・ファミリー", color: "#3cbf7a" },
-  seasonal: { name: "季節・ライトアップ", color: "#f08a24" },
+  anime: {
+    name: "アニメ・マンガ",
+    color: "#22b8d4",
+    seoTitle: "池袋のアニメ・マンガイベント",
+    lead: "乙女ロードやサンシャインシティを中心に、池袋で開催されるアニメ・マンガの展示会、原画展、コラボ企画、POP UPをまとめています。",
+  },
+  collab: {
+    name: "コラボカフェ・POPUP",
+    color: "#ffb400",
+    seoTitle: "池袋のコラボカフェ・POP UPストア",
+    lead: "池袋のコラボカフェ、期間限定のPOP UPストア、キャラクターとのタイアップ企画を、会期・場所・予約の有無とあわせて掲載しています。",
+  },
+  gourmet: {
+    name: "グルメ",
+    color: "#ff5c8f",
+    seoTitle: "池袋のグルメイベント・物産展・新店情報",
+    lead: "百貨店の物産展や催事、パン祭、フードフェス、注目の新店オープンなど、池袋のグルメ情報をまとめています。",
+  },
+  art: {
+    name: "展示・アート",
+    color: "#8b6fe0",
+    seoTitle: "池袋の展示会・美術展・アートイベント",
+    lead: "池袋周辺の美術展、企画展、博物館の特別展、劇場の公演やアートイベントをまとめています。",
+  },
+  festival: {
+    name: "フェス・祭り",
+    color: "#e6432f",
+    seoTitle: "池袋のお祭り・フェス",
+    lead: "池袋西口公園やサンシャインシティなどで開かれるお祭り、音楽フェス、地域イベントをまとめています。",
+  },
+  music: {
+    name: "音楽・ライブ",
+    color: "#4f8ff7",
+    seoTitle: "池袋の音楽イベント・フリーライブ",
+    lead: "サンシャインシティ噴水広場のリリースイベントや池袋西口公園の野外ライブなど、池袋の音楽イベントをまとめています。",
+  },
+  family: {
+    name: "親子・ファミリー",
+    color: "#3cbf7a",
+    seoTitle: "池袋で子どもと楽しめるイベント",
+    lead: "水族館や展望台、体験型の展示、ワークショップなど、池袋で親子・家族で楽しめるイベントをまとめています。",
+  },
+  seasonal: {
+    name: "季節・ライトアップ",
+    color: "#f08a24",
+    seoTitle: "池袋の季節イベント・イルミネーション",
+    lead: "紅葉ライトアップ、クリスマスイルミネーション、初日の出、お正月イベントなど、池袋の季節の催しをまとめています。",
+  },
 } as const
 
 export type CategoryId = keyof typeof CATEGORIES
@@ -88,6 +129,8 @@ export type Article = {
   /** Markdown 本文。 */
   content: string
   publishedAt: string
+  /** 公開後に内容を更新した日（JST, YYYY-MM-DD）。未更新なら省略する。 */
+  updatedAt?: string
   area: AreaId
   categories: CategoryId[]
   tags: string[]
@@ -240,5 +283,26 @@ export const isCategoryId = (id: string): id is CategoryId => id in CATEGORIES
 export const getPublishedIso = (article: Article) =>
   `${article.publishedAt}T09:00:00+09:00`
 
+/** Last content change: updatedAt when the article was revised, else publishedAt. */
+export const getModifiedAt = (article: Article): string =>
+  article.updatedAt && article.updatedAt > article.publishedAt
+    ? article.updatedAt
+    : article.publishedAt
+
+export const getModifiedIso = (article: Article) =>
+  `${getModifiedAt(article)}T09:00:00+09:00`
+
 export const getLatestPublishedAt = (): string =>
   getAllArticles()[0]?.publishedAt ?? "1970-01-01"
+
+/**
+ * Slugs of articles that were merged into another article, mapped to the
+ * slug that replaced them. The old URLs stay as redirect stubs so links and
+ * search results pointing at them keep working.
+ */
+export const ARTICLE_REDIRECTS: Record<string, string> = redirectsData
+
+export const getRedirectTarget = (slug: string): Article | undefined => {
+  const target = ARTICLE_REDIRECTS[slug]
+  return target ? getArticleBySlug(target) : undefined
+}

@@ -10,9 +10,14 @@ import { Thumb } from "@/components/thumb"
 import {
   AREAS,
   CATEGORIES,
+  ARTICLE_REDIRECTS,
+  getEventStatus,
   getAllArticles,
   getArticleBySlug,
+  getModifiedAt,
+  getModifiedIso,
   getPublishedIso,
+  getRedirectTarget,
   getRelatedArticles,
   type Article,
 } from "@/lib/articles"
@@ -20,19 +25,32 @@ import { formatDotDate, formatLongDate, todayJst } from "@/lib/date"
 import { jsonLdScript } from "@/lib/json-ld"
 import { defaultOgImage } from "@/lib/seo"
 import { absoluteUrl, siteName } from "@/lib/site"
+import { getSpotForArticle, getSpotForTag } from "@/lib/spots"
 
 type Props = { params: Promise<{ slug: string }> }
 
 export const dynamicParams = false
 
-export const generateStaticParams = () =>
-  getAllArticles().map((a) => ({ slug: a.slug }))
+export const generateStaticParams = () => [
+  ...getAllArticles().map((a) => ({ slug: a.slug })),
+  ...Object.keys(ARTICLE_REDIRECTS).map((slug) => ({ slug })),
+]
 
 export const generateMetadata = async ({
   params,
 }: Props): Promise<Metadata> => {
-  const article = getArticleBySlug((await params).slug)
-  if (!article) return {}
+  const slug = (await params).slug
+  const article = getArticleBySlug(slug)
+  if (!article) {
+    const target = getRedirectTarget(slug)
+    if (!target) return {}
+    // Merged article: point search engines at the surviving one.
+    return {
+      title: target.title,
+      alternates: { canonical: `/articles/${target.slug}/` },
+      robots: { index: false, follow: true },
+    }
+  }
   const url = `/articles/${article.slug}/`
   return {
     title: `【池袋】${article.title}`,
@@ -52,6 +70,7 @@ export const generateMetadata = async ({
       title: article.title,
       description: article.summary,
       publishedTime: getPublishedIso(article),
+      modifiedTime: getModifiedIso(article),
       section: CATEGORIES[article.categories[0]].name,
       tags: article.tags,
       images: [
@@ -81,7 +100,7 @@ const buildJsonLd = (article: Article) => {
     headline: article.title,
     description: article.summary,
     datePublished: getPublishedIso(article),
-    dateModified: getPublishedIso(article),
+    dateModified: getModifiedIso(article),
     mainEntityOfPage: url,
     url,
     inLanguage: "ja",
@@ -146,11 +165,35 @@ const buildJsonLd = (article: Article) => {
   return [news, event]
 }
 
+const RedirectStub = ({ target }: { target: Article }) => {
+  const href = `/articles/${target.slug}/`
+  return (
+    <>
+      <meta httpEquiv="refresh" content={`0; url=${href}`} />
+      <section className="article">
+        <h1 className="article__title">記事を移動しました</h1>
+        <p>
+          この記事は「
+          <Link href={href}>{target.title}</Link>
+          」に統合しました。自動で移動しない場合はリンクから開いてください。
+        </p>
+      </section>
+    </>
+  )
+}
+
 const Page = async ({ params }: Props) => {
-  const article = getArticleBySlug((await params).slug)
-  if (!article) notFound()
+  const slug = (await params).slug
+  const article = getArticleBySlug(slug)
+  if (!article) {
+    const target = getRedirectTarget(slug)
+    if (target) return <RedirectStub target={target} />
+    notFound()
+  }
   const today = todayJst()
   const e = article.event
+  const spot = getSpotForArticle(article)
+  const ended = e != null && getEventStatus(e, today) === "ended"
 
   return (
     <>
@@ -185,9 +228,19 @@ const Page = async ({ params }: Props) => {
           </Link>
         </div>
         <h1 className="article__title">{article.title}</h1>
-        <time className="article__date" dateTime={getPublishedIso(article)}>
-          {formatDotDate(article.publishedAt)} 公開
-        </time>
+        <p className="article__date">
+          <time dateTime={getPublishedIso(article)}>
+            {formatDotDate(article.publishedAt)} 公開
+          </time>
+          {getModifiedAt(article) !== article.publishedAt && (
+            <>
+              {" ／ "}
+              <time dateTime={getModifiedIso(article)}>
+                {formatDotDate(getModifiedAt(article))} 更新
+              </time>
+            </>
+          )}
+        </p>
         <Thumb article={article} large />
         {article.image && (
           <p className="thumb-credit">
@@ -203,6 +256,32 @@ const Page = async ({ params }: Props) => {
         )}
         <p className="article__summary">{article.summary}</p>
 
+        {ended && e && (
+          <aside className="ended-notice" aria-label="開催終了のお知らせ">
+            <p>
+              このイベントは{formatLongDate(e.endDate ?? e.startDate)}
+              に終了しました。開催中・開催予定のイベントはこちら：
+            </p>
+            <ul>
+              {spot && (
+                <li>
+                  <Link href={`/spots/${spot.id}/`}>
+                    {spot.shortName}の{spot.topic}
+                  </Link>
+                </li>
+              )}
+              <li>
+                <Link href={`/categories/${article.categories[0]}/`}>
+                  池袋の{CATEGORIES[article.categories[0]].name}
+                </Link>
+              </li>
+              <li>
+                <Link href="/events/">開催中・開催予定の池袋イベント</Link>
+              </li>
+            </ul>
+          </aside>
+        )}
+
         {e && (
           <aside className="event-box" aria-labelledby="event-box-title">
             <h2 id="event-box-title" className="event-box__title">
@@ -211,7 +290,11 @@ const Page = async ({ params }: Props) => {
             <dl>
               <dt>会場</dt>
               <dd>
-                <Link href={`/areas/${article.area}/`}>{e.venue}</Link>
+                <Link
+                  href={spot ? `/spots/${spot.id}/` : `/areas/${article.area}/`}
+                >
+                  {e.venue}
+                </Link>
               </dd>
               <dt>期間</dt>
               <dd>
@@ -249,6 +332,11 @@ const Page = async ({ params }: Props) => {
               <Link href="/events/today/">
                 → 今日開催の池袋イベント一覧を見る
               </Link>
+              {spot && (
+                <Link href={`/spots/${spot.id}/`}>
+                  → {spot.shortName}の{spot.topic}一覧を見る
+                </Link>
+              )}
               <Link href={`/areas/${article.area}/`}>
                 → {AREAS[article.area].name}のイベント特集を見る
               </Link>
@@ -305,15 +393,22 @@ const Page = async ({ params }: Props) => {
               Tag
             </p>
             <div className="keyword-list">
-              {article.tags.map((t) => (
-                <Link
-                  key={t}
-                  href={`/articles/?q=${encodeURIComponent(t)}`}
-                  className="keyword-list__item"
-                >
-                  {t}
-                </Link>
-              ))}
+              {article.tags.map((t) => {
+                const tagSpot = getSpotForTag(t)
+                return (
+                  <Link
+                    key={t}
+                    href={
+                      tagSpot
+                        ? `/spots/${tagSpot.id}/`
+                        : `/articles/?q=${encodeURIComponent(t)}`
+                    }
+                    className="keyword-list__item"
+                  >
+                    {t}
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}
