@@ -1,4 +1,5 @@
 import articlesData from "../data/articles.json"
+import redirectsData from "../data/redirects.json"
 import { addDays, addMonths, monthOf, monthRange, weekendRange } from "./date"
 
 export const AREAS = {
@@ -88,6 +89,8 @@ export type Article = {
   /** Markdown 本文。 */
   content: string
   publishedAt: string
+  /** 公開後に内容を更新した日（JST, YYYY-MM-DD）。未更新なら省略する。 */
+  updatedAt?: string
   area: AreaId
   categories: CategoryId[]
   tags: string[]
@@ -240,5 +243,26 @@ export const isCategoryId = (id: string): id is CategoryId => id in CATEGORIES
 export const getPublishedIso = (article: Article) =>
   `${article.publishedAt}T09:00:00+09:00`
 
+/** Last content change: updatedAt when the article was revised, else publishedAt. */
+export const getModifiedAt = (article: Article): string =>
+  article.updatedAt && article.updatedAt > article.publishedAt
+    ? article.updatedAt
+    : article.publishedAt
+
+export const getModifiedIso = (article: Article) =>
+  `${getModifiedAt(article)}T09:00:00+09:00`
+
 export const getLatestPublishedAt = (): string =>
   getAllArticles()[0]?.publishedAt ?? "1970-01-01"
+
+/**
+ * Slugs of articles that were merged into another article, mapped to the
+ * slug that replaced them. The old URLs stay as redirect stubs so links and
+ * search results pointing at them keep working.
+ */
+export const ARTICLE_REDIRECTS: Record<string, string> = redirectsData
+
+export const getRedirectTarget = (slug: string): Article | undefined => {
+  const target = ARTICLE_REDIRECTS[slug]
+  return target ? getArticleBySlug(target) : undefined
+}

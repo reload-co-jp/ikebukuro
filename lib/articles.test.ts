@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import {
+  ARTICLE_REDIRECTS,
   AREAS,
   CATEGORIES,
   getAllArticles,
@@ -27,6 +28,15 @@ describe("articles.json", () => {
     expect(new Set(slugs(articles)).size).toBe(articles.length)
   })
 
+  it("redirects merged slugs to live articles only", () => {
+    const live = new Set(slugs(articles))
+    for (const [from, to] of Object.entries(ARTICLE_REDIRECTS)) {
+      expect(from).toMatch(/^[a-z0-9-]+$/)
+      expect(live.has(from)).toBe(false)
+      expect(live.has(to)).toBe(true)
+    }
+  })
+
   it("uses known areas and categories", () => {
     for (const a of articles) {
       expect(AREAS).toHaveProperty(a.area)
@@ -40,6 +50,10 @@ describe("articles.json", () => {
     for (const a of articles) {
       expect(a.slug).toMatch(/^[a-z0-9-]+$/)
       expect(a.publishedAt).toMatch(iso)
+      if (a.updatedAt) {
+        expect(a.updatedAt).toMatch(iso)
+        expect(a.updatedAt >= a.publishedAt).toBe(true)
+      }
       expect(a.sources.length).toBeGreaterThan(0)
       for (const s of a.sources) expect(s.url).toMatch(/^https?:\/\//)
       if (a.event) {

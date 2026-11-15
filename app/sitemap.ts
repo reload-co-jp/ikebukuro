@@ -5,6 +5,7 @@ import {
   getCategoryIds,
   getEventMonths,
   getLatestPublishedAt,
+  getModifiedAt,
 } from "@/lib/articles"
 import { todayJst } from "@/lib/date"
 import { absoluteUrl } from "@/lib/site"
@@ -34,7 +35,7 @@ const sitemap = (): MetadataRoute.Sitemap => {
     { url: absoluteUrl("/about/"), changeFrequency: "monthly", priority: 0.3 },
     ...getAllArticles().map((a) => ({
       url: absoluteUrl(`/articles/${a.slug}/`),
-      lastModified: new Date(`${a.publishedAt}T09:00:00+09:00`),
+      lastModified: new Date(`${getModifiedAt(a)}T09:00:00+09:00`),
       changeFrequency: "weekly" as const,
       priority: 0.8,
       ...(a.image && { images: [absoluteUrl(a.image.src)] }),

@@ -10,9 +10,13 @@ import { Thumb } from "@/components/thumb"
 import {
   AREAS,
   CATEGORIES,
+  ARTICLE_REDIRECTS,
   getAllArticles,
   getArticleBySlug,
+  getModifiedAt,
+  getModifiedIso,
   getPublishedIso,
+  getRedirectTarget,
   getRelatedArticles,
   type Article,
 } from "@/lib/articles"
@@ -25,14 +29,26 @@ type Props = { params: Promise<{ slug: string }> }
 
 export const dynamicParams = false
 
-export const generateStaticParams = () =>
-  getAllArticles().map((a) => ({ slug: a.slug }))
+export const generateStaticParams = () => [
+  ...getAllArticles().map((a) => ({ slug: a.slug })),
+  ...Object.keys(ARTICLE_REDIRECTS).map((slug) => ({ slug })),
+]
 
 export const generateMetadata = async ({
   params,
 }: Props): Promise<Metadata> => {
-  const article = getArticleBySlug((await params).slug)
-  if (!article) return {}
+  const slug = (await params).slug
+  const article = getArticleBySlug(slug)
+  if (!article) {
+    const target = getRedirectTarget(slug)
+    if (!target) return {}
+    // Merged article: point search engines at the surviving one.
+    return {
+      title: target.title,
+      alternates: { canonical: `/articles/${target.slug}/` },
+      robots: { index: false, follow: true },
+    }
+  }
   const url = `/articles/${article.slug}/`
   return {
     title: `【池袋】${article.title}`,
@@ -52,6 +68,7 @@ export const generateMetadata = async ({
       title: article.title,
       description: article.summary,
       publishedTime: getPublishedIso(article),
+      modifiedTime: getModifiedIso(article),
       section: CATEGORIES[article.categories[0]].name,
       tags: article.tags,
       images: [
@@ -81,7 +98,7 @@ const buildJsonLd = (article: Article) => {
     headline: article.title,
     description: article.summary,
     datePublished: getPublishedIso(article),
-    dateModified: getPublishedIso(article),
+    dateModified: getModifiedIso(article),
     mainEntityOfPage: url,
     url,
     inLanguage: "ja",
@@ -146,9 +163,31 @@ const buildJsonLd = (article: Article) => {
   return [news, event]
 }
 
+const RedirectStub = ({ target }: { target: Article }) => {
+  const href = `/articles/${target.slug}/`
+  return (
+    <>
+      <meta httpEquiv="refresh" content={`0; url=${href}`} />
+      <section className="article">
+        <h1 className="article__title">記事を移動しました</h1>
+        <p>
+          この記事は「
+          <Link href={href}>{target.title}</Link>
+          」に統合しました。自動で移動しない場合はリンクから開いてください。
+        </p>
+      </section>
+    </>
+  )
+}
+
 const Page = async ({ params }: Props) => {
-  const article = getArticleBySlug((await params).slug)
-  if (!article) notFound()
+  const slug = (await params).slug
+  const article = getArticleBySlug(slug)
+  if (!article) {
+    const target = getRedirectTarget(slug)
+    if (target) return <RedirectStub target={target} />
+    notFound()
+  }
   const today = todayJst()
   const e = article.event
 
@@ -185,9 +224,19 @@ const Page = async ({ params }: Props) => {
           </Link>
         </div>
         <h1 className="article__title">{article.title}</h1>
-        <time className="article__date" dateTime={getPublishedIso(article)}>
-          {formatDotDate(article.publishedAt)} 公開
-        </time>
+        <p className="article__date">
+          <time dateTime={getPublishedIso(article)}>
+            {formatDotDate(article.publishedAt)} 公開
+          </time>
+          {getModifiedAt(article) !== article.publishedAt && (
+            <>
+              {" ／ "}
+              <time dateTime={getModifiedIso(article)}>
+                {formatDotDate(getModifiedAt(article))} 更新
+              </time>
+            </>
+          )}
+        </p>
         <Thumb article={article} large />
         {article.image && (
           <p className="thumb-credit">

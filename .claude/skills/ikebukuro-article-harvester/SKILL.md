@@ -74,7 +74,8 @@ Title keywords alone under-detect duplicates: aggregators use colloquial/short t
 
 - A match is a signal, not proof — open the existing article and compare venue and dates. A recurring franchise at a new venue or a new run is `new`.
 - `SOURCE URL MATCH` = existing article.
-- On a duplicate, merge-check the newer source: add it to `sources` (official first, deduped by normalized URL) and merge newly confirmed facts (performers, goods, menu, prices, hours, reservation rules) into `summary` / `content` / `event`. Don't change `slug`, `id` or `publishedAt`.
+- On a duplicate, merge-check the newer source: add it to `sources` (official first, deduped by normalized URL) and merge newly confirmed facts (performers, goods, menu, prices, hours, reservation rules) into `summary` / `content` / `event`. Don't change `slug`, `id` or `publishedAt`; set `updatedAt` to today (JST) so search engines see the revision (`dateModified`, sitemap `lastmod`).
+- If two existing articles cover the same event, keep the older one (its URL has been live longer), merge the other's facts and sources into it, delete the newer article and its image, and add `"<deleted-slug>": "<kept-slug>"` to `data/redirects.json` so the old URL becomes a redirect stub.
 - Keep a ledger while working: `new` / `merge` / `duplicate` / `hold`.
 
 ## Source Priority
