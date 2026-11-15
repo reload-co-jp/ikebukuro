@@ -11,6 +11,7 @@ import {
   AREAS,
   CATEGORIES,
   ARTICLE_REDIRECTS,
+  getEventStatus,
   getAllArticles,
   getArticleBySlug,
   getModifiedAt,
@@ -24,6 +25,7 @@ import { formatDotDate, formatLongDate, todayJst } from "@/lib/date"
 import { jsonLdScript } from "@/lib/json-ld"
 import { defaultOgImage } from "@/lib/seo"
 import { absoluteUrl, siteName } from "@/lib/site"
+import { getSpotForArticle, getSpotForTag } from "@/lib/spots"
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -190,6 +192,8 @@ const Page = async ({ params }: Props) => {
   }
   const today = todayJst()
   const e = article.event
+  const spot = getSpotForArticle(article)
+  const ended = e != null && getEventStatus(e, today) === "ended"
 
   return (
     <>
@@ -252,6 +256,32 @@ const Page = async ({ params }: Props) => {
         )}
         <p className="article__summary">{article.summary}</p>
 
+        {ended && e && (
+          <aside className="ended-notice" aria-label="開催終了のお知らせ">
+            <p>
+              このイベントは{formatLongDate(e.endDate ?? e.startDate)}
+              に終了しました。開催中・開催予定のイベントはこちら：
+            </p>
+            <ul>
+              {spot && (
+                <li>
+                  <Link href={`/spots/${spot.id}/`}>
+                    {spot.shortName}の{spot.topic}
+                  </Link>
+                </li>
+              )}
+              <li>
+                <Link href={`/categories/${article.categories[0]}/`}>
+                  池袋の{CATEGORIES[article.categories[0]].name}
+                </Link>
+              </li>
+              <li>
+                <Link href="/events/">開催中・開催予定の池袋イベント</Link>
+              </li>
+            </ul>
+          </aside>
+        )}
+
         {e && (
           <aside className="event-box" aria-labelledby="event-box-title">
             <h2 id="event-box-title" className="event-box__title">
@@ -260,7 +290,11 @@ const Page = async ({ params }: Props) => {
             <dl>
               <dt>会場</dt>
               <dd>
-                <Link href={`/areas/${article.area}/`}>{e.venue}</Link>
+                <Link
+                  href={spot ? `/spots/${spot.id}/` : `/areas/${article.area}/`}
+                >
+                  {e.venue}
+                </Link>
               </dd>
               <dt>期間</dt>
               <dd>
@@ -298,6 +332,11 @@ const Page = async ({ params }: Props) => {
               <Link href="/events/today/">
                 → 今日開催の池袋イベント一覧を見る
               </Link>
+              {spot && (
+                <Link href={`/spots/${spot.id}/`}>
+                  → {spot.shortName}の{spot.topic}一覧を見る
+                </Link>
+              )}
               <Link href={`/areas/${article.area}/`}>
                 → {AREAS[article.area].name}のイベント特集を見る
               </Link>
@@ -354,15 +393,22 @@ const Page = async ({ params }: Props) => {
               Tag
             </p>
             <div className="keyword-list">
-              {article.tags.map((t) => (
-                <Link
-                  key={t}
-                  href={`/articles/?q=${encodeURIComponent(t)}`}
-                  className="keyword-list__item"
-                >
-                  {t}
-                </Link>
-              ))}
+              {article.tags.map((t) => {
+                const tagSpot = getSpotForTag(t)
+                return (
+                  <Link
+                    key={t}
+                    href={
+                      tagSpot
+                        ? `/spots/${tagSpot.id}/`
+                        : `/articles/?q=${encodeURIComponent(t)}`
+                    }
+                    className="keyword-list__item"
+                  >
+                    {t}
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}

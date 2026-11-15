@@ -22,6 +22,7 @@
 | `/articles/[slug]/` | 記事詳細（NewsArticle / Event の JSON-LD 付き） |
 | `/areas/` `/areas/[area]/` | エリア別一覧（東口・西口・サンシャインシティ・池袋駅・南長崎・目白・全域） |
 | `/categories/[category]/` | ジャンル別一覧 |
+| `/spots/` `/spots/[spot]/` | スポット別一覧（サンシャインシティ・東武百貨店・池袋PARCO など。`lib/spots.ts` で定義し、該当記事が2件以上あるスポットだけ生成） |
 | `/about/` | サイトについて・編集方針 |
 | `/rss.xml` `/sitemap.xml` `/robots.txt` | フィード・SEO |
 

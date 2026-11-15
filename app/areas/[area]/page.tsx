@@ -4,7 +4,7 @@ import { ArticleGrid } from "@/components/article-card"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { PageHeader } from "@/components/page-header"
 import { AREAS, getAreaIds, getArticlesByArea, isAreaId } from "@/lib/articles"
-import { todayJst } from "@/lib/date"
+import { formatMonth, monthOf, todayJst } from "@/lib/date"
 import { pageMetadata } from "@/lib/seo"
 
 type Props = { params: Promise<{ area: string }> }
@@ -19,8 +19,8 @@ export const generateMetadata = async ({
   const { area } = await params
   if (!isAreaId(area)) return {}
   return pageMetadata({
-    title: `${AREAS[area].name}のイベント・最新情報`,
-    description: AREAS[area].description,
+    title: `${AREAS[area].name}のイベント情報【${formatMonth(monthOf(todayJst()))}最新】`,
+    description: `${AREAS[area].description}開催中・開催予定のイベントや新店情報をまとめています。`,
     path: `/areas/${area}/`,
   })
 }
@@ -38,7 +38,7 @@ const Page = async ({ params }: Props) => {
       />
       <PageHeader
         kicker="Area"
-        title={`${AREAS[area].name}のイベント・最新情報`}
+        title={`${AREAS[area].name}のイベント情報【${formatMonth(monthOf(todayJst()))}最新】`}
         lead={AREAS[area].description}
       />
       <ArticleGrid
